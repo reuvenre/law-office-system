@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# מערכת לניהול משרד עורכי דין
 
-## Getting Started
+Practice-management system for a small Israeli law office. Hebrew, full RTL, mobile-first.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Next.js 14** (App Router, TypeScript) · Tailwind + shadcn/ui
+- **Neon Postgres** (EU / Frankfurt) via **Drizzle ORM**
+- **Auth.js v5** (email + password, bcrypt)
+- **Vercel Blob** (documents) · **Vercel** (hosting)
+- Reminders via Vercel Cron (Phase 7) · Make + Google Drive (Phase 7b)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Install**: `npm install`
+2. **Neon**: create a project (EU/Frankfurt) at [neon.tech](https://neon.tech), copy the **pooled** connection string.
+3. **Env**: fill `.env.local` (see `.env.example`):
+   - `DATABASE_URL` — Neon pooled connection string
+   - `AUTH_SECRET` — already generated (or `npx auth secret`)
+   - `BLOB_READ_WRITE_TOKEN` — Vercel → Storage → Blob (needed for document uploads)
+4. **Migrate**: `npm run db:migrate`
+5. **Seed users** (optional names/passwords via `SEED_LAWYER1_*` / `SEED_LAWYER2_*` env): `npm run db:seed`
+   - Defaults: `lawyer1@example.com` / `lawyer2@example.com`, password `ChangeMe!123` — **change before production**.
+6. **Run**: `npm run dev` → http://localhost:3000
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+- `npm run dev` / `build` / `start`
+- `npm run db:generate` — generate SQL migration from schema
+- `npm run db:migrate` — apply migrations to Neon
+- `npm run db:push` — push schema directly (dev)
+- `npm run db:studio` — Drizzle Studio
+- `npm run db:seed` — seed the two lawyer users
 
-To learn more about Next.js, take a look at the following resources:
+## Status
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Phases 0–6 implemented (auth, clients, cases, hearings/deadlines/tasks, documents,
+dashboard, notes/audit, activity feed, global search). Phases 7–8 (reminders, Drive
+sync, 2FA, conflict-of-interest UI, polish) pending. See the build plan for details.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Notes
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Authorization** is enforced in the app layer (`requireLawyer`) — v1 has a single
+  `lawyer` role. The `role` column is retained for future role separation.
+- **Documents** are stored in Vercel Blob and served through an auth-gated proxy
+  (`/api/documents/[id]/download`); blob URLs are never exposed to the client.
+- **Audit**: every status change writes `case_status_history` (atomic via `db.batch`);
+  notes and status changes show author + timestamp everywhere; `activity_log` is append-only.

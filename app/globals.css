@@ -2,22 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+/*
+ * Design tokens — Law Office System (spec §10.3)
+ * shadcn/ui reads HSL-channel triplets from these CSS variables.
+ * Light theme only for v1 (professional, calm, trustworthy surfaces).
+ */
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Surfaces */
+    --background: 0 0% 100%; /* #FFFFFF */
+    --foreground: 222 47% 11%; /* #0F172A text primary */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --muted: 210 40% 98%; /* #F8FAFC subtle background */
+    --muted-foreground: 215 25% 35%; /* #475569 text secondary */
+
+    /* Brand */
+    --primary: 217 49% 16%; /* #15233E navy */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 217 49% 16%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 217 49% 16%;
+
+    /* Brand gold — for pointed emphasis only (spec §10.3) */
+    --gold: 45 67% 47%; /* #C9A227 */
+    --gold-foreground: 0 0% 100%;
+
+    /* Status palette */
+    --success: 142 71% 36%; /* #16A34A */
+    --success-foreground: 0 0% 100%;
+    --warning: 32 95% 44%; /* #D97706 */
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%; /* #DC2626 danger / critical */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Lines & focus */
+    --border: 214 32% 91%; /* #E2E8F0 */
+    --input: 214 32% 91%;
+    --ring: 217 49% 16%;
+
+    --radius: 0.5rem;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body), system-ui, sans-serif;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading), Georgia, serif;
+  }
 }
 
 @layer utilities {
