@@ -18,6 +18,7 @@ type ClientDefaults = {
   notes?: string | null;
   reminderConsent?: boolean;
   reminderChannel?: string | null;
+  onedriveUrl?: string | null;
 };
 
 const selectClass =
@@ -103,6 +104,18 @@ export function ClientForm({
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="notes">הערות</Label>
           <Textarea id="notes" name="notes" rows={3} defaultValue={defaults?.notes ?? ""} />
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="onedriveUrl">קישור תיקייה ב-OneDrive</Label>
+          <Input
+            id="onedriveUrl"
+            name="onedriveUrl"
+            type="url"
+            dir="ltr"
+            placeholder="https://..."
+            defaultValue={defaults?.onedriveUrl ?? ""}
+          />
         </div>
 
         <div className="space-y-2">

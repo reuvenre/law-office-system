@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listOpenDeadlines } from "@/lib/data/events";
+import { getViewer } from "@/lib/auth/viewer";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PriorityBadge } from "@/components/shared/status-badge";
@@ -10,7 +11,8 @@ import type { Priority } from "@/lib/constants";
 export const dynamic = "force-dynamic";
 
 export default async function DeadlinesPage() {
-  const rows = await listOpenDeadlines();
+  const viewer = await getViewer();
+  const rows = await listOpenDeadlines(viewer.allowedIds);
 
   return (
     <div>

@@ -17,6 +17,7 @@ export const clientSchema = z.object({
   notes: optionalText,
   reminderConsent: z.boolean(),
   reminderChannel: z.enum(["whatsapp", "sms", "email"]),
+  onedriveUrl: optionalText,
 });
 
 export type ClientInput = z.infer<typeof clientSchema>;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { listClients } from "@/lib/data/clients";
+import { getViewer } from "@/lib/auth/viewer";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,8 @@ export default async function ClientsPage({
   searchParams: { q?: string };
 }) {
   const q = searchParams.q ?? "";
-  const rows = await listClients(q);
+  const viewer = await getViewer();
+  const rows = await listClients(viewer.allowedIds, q);
 
   return (
     <div>

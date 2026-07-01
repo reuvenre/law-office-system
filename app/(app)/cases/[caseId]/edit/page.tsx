@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getCase } from "@/lib/data/cases";
 import { listClients } from "@/lib/data/clients";
 import { listActiveLawyers } from "@/lib/data/users";
+import { getViewer } from "@/lib/auth/viewer";
 import { updateCaseAction } from "@/app/(app)/cases/actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { CaseForm } from "@/components/cases/case-form";
@@ -14,11 +15,12 @@ export default async function EditCasePage({
 }: {
   params: { caseId: string };
 }) {
-  const caseRow = await getCase(params.caseId);
+  const viewer = await getViewer();
+  const caseRow = await getCase(params.caseId, viewer.allowedIds);
   if (!caseRow) notFound();
 
   const [clientRows, lawyers] = await Promise.all([
-    listClients(),
+    listClients(viewer.allowedIds),
     listActiveLawyers(),
   ]);
   const clients = clientRows.map((c) => ({ id: c.id, fullName: c.fullName }));
@@ -40,6 +42,7 @@ export default async function EditCasePage({
           opposingParty: caseRow.opposingParty,
           court: caseRow.court,
           responsibleLawyerId: caseRow.responsibleLawyerId,
+          onedriveUrl: caseRow.onedriveUrl,
           typeFields: caseRow.typeFields as Record<string, unknown>,
         }}
       />

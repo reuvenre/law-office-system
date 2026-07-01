@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Plus, Pencil, ExternalLink } from "lucide-react";
 import { getClient, getClientCases, getClientNotes } from "@/lib/data/clients";
 import { getClientDocuments } from "@/lib/data/documents";
+import { getViewer } from "@/lib/auth/viewer";
 import { deleteClientAction } from "@/app/(app)/clients/actions";
 import { deleteDocumentAction } from "@/app/(app)/documents/actions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -47,11 +48,12 @@ export default async function ClientCardPage({
 }: {
   params: { clientId: string };
 }) {
-  const client = await getClient(params.clientId);
+  const viewer = await getViewer();
+  const client = await getClient(params.clientId, viewer.allowedIds);
   if (!client) notFound();
 
   const [clientCases, clientNotes, clientDocs] = await Promise.all([
-    getClientCases(client.id),
+    getClientCases(client.id, viewer.allowedIds),
     getClientNotes(client.id),
     getClientDocuments(client.id),
   ]);
@@ -64,15 +66,15 @@ export default async function ClientCardPage({
         description={CLIENT_TYPES[client.clientType as ClientType]}
         action={
           <div className="flex gap-2">
-            {client.driveFolderId && (
+            {client.onedriveUrl && (
               <Button asChild variant="outline" size="sm">
                 <a
-                  href={`https://drive.google.com/drive/folders/${client.driveFolderId}`}
+                  href={client.onedriveUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  פתח בדרייב
+                  פתח ב-OneDrive
                 </a>
               </Button>
             )}

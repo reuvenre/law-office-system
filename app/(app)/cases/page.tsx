@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { listCases } from "@/lib/data/cases";
+import { getViewer } from "@/lib/auth/viewer";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { CaseStatusBadge } from "@/components/shared/status-badge";
@@ -25,7 +26,8 @@ export default async function CasesPage({
   searchParams: { q?: string };
 }) {
   const q = searchParams.q ?? "";
-  const rows = await listCases(q);
+  const viewer = await getViewer();
+  const rows = await listCases(viewer.allowedIds, q);
 
   return (
     <div>

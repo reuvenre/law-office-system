@@ -36,6 +36,7 @@ import { DocumentUploader } from "@/components/documents/document-uploader";
 import { deleteDocumentAction } from "@/app/(app)/documents/actions";
 import { InlineDelete } from "@/components/shared/inline-delete";
 import { listActiveLawyers } from "@/lib/data/users";
+import { getViewer } from "@/lib/auth/viewer";
 import { deleteHearingAction } from "@/app/(app)/hearings/actions";
 import {
   toggleDeadlineAction,
@@ -78,7 +79,8 @@ export default async function CaseCardPage({
 }: {
   params: { caseId: string };
 }) {
-  const caseRow = await getCase(params.caseId);
+  const viewer = await getViewer();
+  const caseRow = await getCase(params.caseId, viewer.allowedIds);
   if (!caseRow) notFound();
 
   const [history, hearings, deadlines, tasks, notes, documents, lawyers] =
@@ -110,11 +112,11 @@ export default async function CaseCardPage({
         action={
           <div className="flex flex-wrap gap-2">
             <CaseStatusBadge status={caseRow.status as CaseStatus} />
-            {caseRow.driveUrl && (
+            {caseRow.onedriveUrl && (
               <Button asChild variant="outline" size="sm">
-                <a href={caseRow.driveUrl} target="_blank" rel="noopener noreferrer">
+                <a href={caseRow.onedriveUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4" />
-                  פתח בדרייב
+                  פתח ב-OneDrive
                 </a>
               </Button>
             )}

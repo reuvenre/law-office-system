@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireLawyer } from "@/lib/auth/guards";
+import { getViewer } from "@/lib/auth/viewer";
 import {
   getUpcomingHearings,
   getUpcomingDeadlines,
@@ -32,19 +32,19 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
 }
 
 export default async function DashboardPage() {
-  const user = await requireLawyer();
+  const viewer = await getViewer();
   const [weekHearings, deadlines14, activeCases, myTasks, activity] =
     await Promise.all([
-      getUpcomingHearings(7),
-      getUpcomingDeadlines(14),
-      countActiveCases(),
-      listTasks(user.id),
-      getRecentActivity(15),
+      getUpcomingHearings(7, viewer.allowedIds),
+      getUpcomingDeadlines(14, viewer.allowedIds),
+      countActiveCases(viewer.allowedIds),
+      listTasks(viewer.id),
+      getRecentActivity(15, viewer.allowedIds),
     ]);
 
   return (
     <div>
-      <PageHeader title={`שלום, ${user.name}`} description="מבט מהיר על המשרד" />
+      <PageHeader title={`שלום, ${viewer.name}`} description="מבט מהיר על המשרד" />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="דיונים השבוע" value={weekHearings.length} />

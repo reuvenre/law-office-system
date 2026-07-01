@@ -30,6 +30,7 @@ export const caseBaseSchema = z.object({
   opposingParty: optionalText,
   court: optionalText,
   responsibleLawyerId: z.string().uuid().optional().or(z.literal("")),
+  onedriveUrl: optionalText,
 });
 
 export type CaseBaseInput = z.infer<typeof caseBaseSchema>;

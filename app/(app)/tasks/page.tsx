@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listTasks } from "@/lib/data/events";
 import { listActiveLawyers } from "@/lib/data/users";
+import { getViewer } from "@/lib/auth/viewer";
 import { deleteTaskAction } from "@/app/(app)/tasks/actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -15,7 +16,11 @@ import { type TaskStatus } from "@/lib/constants";
 export const dynamic = "force-dynamic";
 
 export default async function TasksPage() {
-  const [rows, lawyers] = await Promise.all([listTasks(), listActiveLawyers()]);
+  const viewer = await getViewer();
+  const [rows, lawyers] = await Promise.all([
+    listTasks(undefined, viewer.allowedIds),
+    listActiveLawyers(),
+  ]);
 
   return (
     <div>

@@ -1,11 +1,21 @@
 import { db } from "@/lib/db";
 import { hearings, deadlines, tasks, cases, clients, users } from "@/lib/db/schema";
 import { and, asc, desc, eq, gte, lte, ne } from "drizzle-orm";
+import { caseScope, taskScope, withScope } from "@/lib/auth/scope";
 
-/** Hearings within [now, now+days], scheduled, with case/client labels. */
-export async function getUpcomingHearings(days = 14) {
+type Ids = string[] | null;
+
+export async function getUpcomingHearings(days = 14, allowedIds: Ids = null) {
   const now = new Date();
   const until = new Date(now.getTime() + days * 86400000);
+  const where = withScope(
+    and(
+      eq(hearings.status, "scheduled"),
+      gte(hearings.hearingAt, now),
+      lte(hearings.hearingAt, until)
+    ),
+    caseScope(allowedIds)
+  );
   return db
     .select({
       id: hearings.id,
@@ -20,20 +30,21 @@ export async function getUpcomingHearings(days = 14) {
     .from(hearings)
     .leftJoin(cases, eq(hearings.caseId, cases.id))
     .leftJoin(clients, eq(cases.clientId, clients.id))
-    .where(
-      and(
-        eq(hearings.status, "scheduled"),
-        gte(hearings.hearingAt, now),
-        lte(hearings.hearingAt, until)
-      )
-    )
+    .where(where)
     .orderBy(asc(hearings.hearingAt));
 }
 
-/** Open deadlines within [now, now+days]. */
-export async function getUpcomingDeadlines(days = 14) {
+export async function getUpcomingDeadlines(days = 14, allowedIds: Ids = null) {
   const now = new Date();
   const until = new Date(now.getTime() + days * 86400000);
+  const where = withScope(
+    and(
+      eq(deadlines.isDone, false),
+      gte(deadlines.dueAt, now),
+      lte(deadlines.dueAt, until)
+    ),
+    caseScope(allowedIds)
+  );
   return db
     .select({
       id: deadlines.id,
@@ -48,18 +59,12 @@ export async function getUpcomingDeadlines(days = 14) {
     .from(deadlines)
     .leftJoin(cases, eq(deadlines.caseId, cases.id))
     .leftJoin(clients, eq(cases.clientId, clients.id))
-    .where(
-      and(
-        eq(deadlines.isDone, false),
-        gte(deadlines.dueAt, now),
-        lte(deadlines.dueAt, until)
-      )
-    )
+    .where(where)
     .orderBy(asc(deadlines.dueAt));
 }
 
-/** All scheduled hearings (no date cap) — the global agenda for the side nav. */
-export async function listScheduledHearings() {
+export async function listScheduledHearings(allowedIds: Ids = null) {
+  const where = withScope(eq(hearings.status, "scheduled"), caseScope(allowedIds));
   return db
     .select({
       id: hearings.id,
@@ -74,12 +79,12 @@ export async function listScheduledHearings() {
     .from(hearings)
     .leftJoin(cases, eq(hearings.caseId, cases.id))
     .leftJoin(clients, eq(cases.clientId, clients.id))
-    .where(eq(hearings.status, "scheduled"))
+    .where(where)
     .orderBy(asc(hearings.hearingAt));
 }
 
-/** All open deadlines (no date cap). */
-export async function listOpenDeadlines() {
+export async function listOpenDeadlines(allowedIds: Ids = null) {
+  const where = withScope(eq(deadlines.isDone, false), caseScope(allowedIds));
   return db
     .select({
       id: deadlines.id,
@@ -94,11 +99,11 @@ export async function listOpenDeadlines() {
     .from(deadlines)
     .leftJoin(cases, eq(deadlines.caseId, cases.id))
     .leftJoin(clients, eq(cases.clientId, clients.id))
-    .where(eq(deadlines.isDone, false))
+    .where(where)
     .orderBy(asc(deadlines.dueAt));
 }
 
-export async function listTasks(assigneeId?: string) {
+export async function listTasks(assigneeId?: string, allowedIds: Ids = null) {
   const rows = db
     .select({
       t: tasks,
@@ -114,5 +119,6 @@ export async function listTasks(assigneeId?: string) {
       .where(and(eq(tasks.assignedTo, assigneeId), ne(tasks.status, "done")))
       .orderBy(asc(tasks.dueAt));
   }
-  return rows.orderBy(desc(tasks.createdAt));
+  const scope = taskScope(allowedIds);
+  return (scope ? rows.where(scope) : rows).orderBy(desc(tasks.createdAt));
 }

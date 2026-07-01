@@ -19,6 +19,7 @@ type CaseDefaults = {
   opposingParty?: string | null;
   court?: string | null;
   responsibleLawyerId?: string | null;
+  onedriveUrl?: string | null;
   typeFields?: Record<string, unknown> | null;
 };
 
@@ -157,6 +158,18 @@ export function CaseForm({
             id="opposingParty"
             name="opposingParty"
             defaultValue={defaults?.opposingParty ?? ""}
+          />
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="onedriveUrl">קישור תיקייה ב-OneDrive</Label>
+          <Input
+            id="onedriveUrl"
+            name="onedriveUrl"
+            type="url"
+            dir="ltr"
+            placeholder="https://..."
+            defaultValue={defaults?.onedriveUrl ?? ""}
           />
         </div>
       </div>

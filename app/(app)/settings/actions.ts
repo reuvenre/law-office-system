@@ -1,36 +1,57 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { users, appSettings } from "@/lib/db/schema";
-import { requireLawyer } from "@/lib/auth/guards";
+import { getViewer, requireAdmin } from "@/lib/auth/viewer";
 import { getSettings } from "@/lib/data/settings";
 
 export type UserFormState = { error?: string } | undefined;
 
 type Role = "lawyer" | "assistant";
+type Scope = "all" | "own" | "custom";
 
-/** Update a user's display name / phone / role (spec §6.10). */
-export async function updateUserAction(userId: string, formData: FormData) {
-  await requireLawyer();
+/** Update name / email / phone (self or admin); role changes are admin-only. */
+export async function updateUserAction(
+  userId: string,
+  formData: FormData
+): Promise<UserFormState> {
+  const viewer = await getViewer();
+  if (!viewer.isAdmin && viewer.id !== userId) {
+    return { error: "אין הרשאה" };
+  }
+
   const fullName = (formData.get("fullName") as string)?.trim();
   const phone = (formData.get("phone") as string)?.trim() || null;
-  const role = String(formData.get("role") || "lawyer") as Role;
-  if (!fullName) return;
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  if (!fullName || !email) return { error: "שם ואימייל הם שדות חובה" };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { error: "אימייל לא תקין" };
+  }
 
-  await db
-    .update(users)
-    .set({ fullName, phone, role })
-    .where(eq(users.id, userId));
+  const clash = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.email, email), ne(users.id, userId)))
+    .limit(1);
+  if (clash[0]) return { error: "אימייל כבר קיים במערכת" };
+
+  const patch: Record<string, unknown> = { fullName, phone, email };
+  if (viewer.isAdmin) {
+    patch.role = String(formData.get("role") || "lawyer") as Role;
+  }
+  await db.update(users).set(patch).where(eq(users.id, userId));
   revalidatePath("/settings");
+  return undefined;
 }
 
-/** Set a user's password (for the email/password sign-in path). */
+/** Set a password (self or admin). */
 export async function setPasswordAction(userId: string, formData: FormData) {
-  await requireLawyer();
+  const viewer = await getViewer();
+  if (!viewer.isAdmin && viewer.id !== userId) return;
   const password = String(formData.get("password") || "");
   if (password.length < 8) return;
   const passwordHash = await bcrypt.hash(password, 10);
@@ -38,10 +59,26 @@ export async function setPasswordAction(userId: string, formData: FormData) {
   revalidatePath("/settings");
 }
 
-/** Activate / deactivate a user (soft access control). */
+/** Activate / deactivate a user (admin only). */
 export async function setUserActiveAction(userId: string, isActive: boolean) {
-  await requireLawyer();
+  await requireAdmin();
   await db.update(users).set({ isActive }).where(eq(users.id, userId));
+  revalidatePath("/settings");
+}
+
+/** Set a user's visibility scope + admin flag (admin only). */
+export async function setUserScopeAction(userId: string, formData: FormData) {
+  await requireAdmin();
+  const isAdmin = formData.get("isAdmin") === "on";
+  const accessScope = String(formData.get("accessScope") || "own") as Scope;
+  const visibleUserIds = formData
+    .getAll("visibleUserIds")
+    .map(String)
+    .filter(Boolean);
+  await db
+    .update(users)
+    .set({ isAdmin, accessScope, visibleUserIds })
+    .where(eq(users.id, userId));
   revalidatePath("/settings");
 }
 
@@ -52,12 +89,12 @@ const addUserSchema = z.object({
   password: z.string().min(8),
 });
 
-/** Add a new user (lawyer or assistant). */
+/** Add a new user (admin only). */
 export async function addUserAction(
   _prev: UserFormState,
   formData: FormData
 ): Promise<UserFormState> {
-  await requireLawyer();
+  await requireAdmin();
   const parsed = addUserSchema.safeParse({
     fullName: formData.get("fullName"),
     email: formData.get("email"),
@@ -84,6 +121,7 @@ export async function addUserAction(
     role: parsed.data.role,
     passwordHash,
     isActive: true,
+    accessScope: "own",
   });
   revalidatePath("/settings");
   return undefined;
@@ -96,9 +134,9 @@ function parseDays(raw: unknown): number[] {
     .filter((n) => Number.isFinite(n) && n >= 0);
 }
 
-/** Update reminder templates, alert windows and default channel (spec §6.10). */
+/** Update reminder templates / windows / channel (admin only). */
 export async function updateReminderSettingsAction(formData: FormData) {
-  await requireLawyer();
+  await requireAdmin();
   const current = await getSettings();
   await db
     .update(appSettings)

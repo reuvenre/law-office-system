@@ -19,6 +19,9 @@ export async function listUsersForSettings() {
       phone: users.phone,
       role: users.role,
       isActive: users.isActive,
+      isAdmin: users.isAdmin,
+      accessScope: users.accessScope,
+      visibleUserIds: users.visibleUserIds,
     })
     .from(users)
     .orderBy(asc(users.createdAt));

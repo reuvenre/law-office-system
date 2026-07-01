@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getClient } from "@/lib/data/clients";
+import { getViewer } from "@/lib/auth/viewer";
 import { updateClientAction } from "@/app/(app)/clients/actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { ClientForm } from "@/components/clients/client-form";
@@ -11,7 +12,8 @@ export default async function EditClientPage({
 }: {
   params: { clientId: string };
 }) {
-  const client = await getClient(params.clientId);
+  const viewer = await getViewer();
+  const client = await getClient(params.clientId, viewer.allowedIds);
   if (!client) notFound();
 
   const action = updateClientAction.bind(null, client.id);
@@ -32,6 +34,7 @@ export default async function EditClientPage({
           notes: client.notes,
           reminderConsent: client.reminderConsent,
           reminderChannel: client.reminderChannel,
+          onedriveUrl: client.onedriveUrl,
         }}
       />
     </div>

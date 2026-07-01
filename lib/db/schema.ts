@@ -14,6 +14,7 @@ import {
 /* Enums (spec §4 / appendices א'·ב')                                  */
 /* ------------------------------------------------------------------ */
 export const roleEnum = pgEnum("role", ["lawyer", "assistant"]);
+export const accessScopeEnum = pgEnum("access_scope", ["all", "own", "custom"]);
 export const clientTypeEnum = pgEnum("client_type", ["individual", "company"]);
 export const reminderChannelEnum = pgEnum("reminder_channel", [
   "whatsapp",
@@ -114,6 +115,9 @@ export const users = pgTable("users", {
   role: roleEnum("role").notNull().default("lawyer"),
   avatarUrl: text("avatar_url"),
   isActive: boolean("is_active").notNull().default(true),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  accessScope: accessScopeEnum("access_scope").notNull().default("own"),
+  visibleUserIds: jsonb("visible_user_ids").$type<string[]>().notNull().default([]),
   ...timestamps,
 });
 
@@ -132,6 +136,7 @@ export const clients = pgTable("clients", {
   reminderConsent: boolean("reminder_consent").notNull().default(false),
   reminderChannel: reminderChannelEnum("reminder_channel").default("whatsapp"),
   driveFolderId: text("drive_folder_id"),
+  onedriveUrl: text("onedrive_url"),
   createdBy: uuid("created_by").references(() => users.id),
   ...timestamps,
 });
@@ -154,6 +159,7 @@ export const cases = pgTable("cases", {
   typeFields: jsonb("type_fields").notNull().default({}),
   driveFolderId: text("drive_folder_id"),
   driveUrl: text("drive_url"),
+  onedriveUrl: text("onedrive_url"),
   openedAt: date("opened_at").notNull().defaultNow(),
   closedAt: date("closed_at"),
   createdBy: uuid("created_by").references(() => users.id),

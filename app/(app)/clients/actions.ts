@@ -26,6 +26,7 @@ function parseForm(formData: FormData) {
     notes: formData.get("notes") ?? "",
     reminderConsent: formData.get("reminderConsent") === "on",
     reminderChannel: formData.get("reminderChannel"),
+    onedriveUrl: formData.get("onedriveUrl") ?? "",
   });
 }
 

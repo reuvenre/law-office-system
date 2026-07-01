@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listScheduledHearings } from "@/lib/data/events";
+import { getViewer } from "@/lib/auth/viewer";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +9,8 @@ import { formatDateTime } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function HearingsPage() {
-  const rows = await listScheduledHearings();
+  const viewer = await getViewer();
+  const rows = await listScheduledHearings(viewer.allowedIds);
 
   return (
     <div>

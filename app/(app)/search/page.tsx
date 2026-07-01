@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { globalSearch } from "@/lib/data/search";
+import { getViewer } from "@/lib/auth/viewer";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,8 @@ export default async function SearchPage({
   searchParams: { q?: string };
 }) {
   const q = (searchParams.q ?? "").trim();
-  const results = q ? await globalSearch(q) : null;
+  const viewer = await getViewer();
+  const results = q ? await globalSearch(q, viewer.allowedIds) : null;
 
   return (
     <div>

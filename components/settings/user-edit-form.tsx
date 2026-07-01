@@ -7,6 +7,7 @@ import {
   updateUserAction,
   setPasswordAction,
   setUserActiveAction,
+  setUserScopeAction,
 } from "@/app/(app)/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ROLES } from "@/lib/constants";
+import { ROLES, ACCESS_SCOPES } from "@/lib/constants";
 
 const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -38,6 +39,9 @@ type User = {
   phone: string | null;
   role: string;
   isActive: boolean;
+  isAdmin: boolean;
+  accessScope: string;
+  visibleUserIds: string[];
 };
 
 function ChangePasswordDialog({ userId }: { userId: string }) {
@@ -74,13 +78,24 @@ function ChangePasswordDialog({ userId }: { userId: string }) {
   );
 }
 
-export function UserEditForm({ user }: { user: User }) {
+export function UserEditForm({
+  user,
+  canManage,
+  allUsers,
+}: {
+  user: User;
+  canManage: boolean;
+  allUsers: { id: string; fullName: string }[];
+}) {
+  const [scope, setScope] = useState(user.accessScope);
+
   return (
     <div className="space-y-3 rounded-lg border p-3">
       <form
         action={async (fd) => {
-          await updateUserAction(user.id, fd);
-          toast.success("הפרטים נשמרו");
+          const res = await updateUserAction(user.id, fd);
+          if (res?.error) toast.error(res.error);
+          else toast.success("הפרטים נשמרו");
         }}
         className="grid gap-3 sm:grid-cols-3"
       >
@@ -92,19 +107,24 @@ export function UserEditForm({ user }: { user: User }) {
           <Label htmlFor={`phone-${user.id}`}>טלפון</Label>
           <Input id={`phone-${user.id}`} name="phone" type="tel" dir="ltr" defaultValue={user.phone ?? ""} />
         </div>
-        <div className="space-y-1">
-          <Label htmlFor={`role-${user.id}`}>תפקיד</Label>
-          <select id={`role-${user.id}`} name="role" defaultValue={user.role} className={selectClass}>
-            {Object.entries(ROLES).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </div>
+        {canManage && (
+          <div className="space-y-1">
+            <Label htmlFor={`role-${user.id}`}>תפקיד</Label>
+            <select id={`role-${user.id}`} name="role" defaultValue={user.role} className={selectClass}>
+              {Object.entries(ROLES).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="space-y-1 sm:col-span-3">
-          <Label>אימייל (לא ניתן לעריכה)</Label>
-          <Input value={user.email} dir="ltr" disabled />
+          <Label htmlFor={`email-${user.id}`}>אימייל</Label>
+          <Input id={`email-${user.id}`} name="email" type="email" dir="ltr" defaultValue={user.email} required />
+          <p className="text-xs text-muted-foreground">
+            שינוי האימייל משנה את זהות ההתחברות של המשתמש/ת.
+          </p>
         </div>
         <div className="sm:col-span-3">
           <SaveButton />
@@ -113,15 +133,79 @@ export function UserEditForm({ user }: { user: User }) {
 
       <div className="flex flex-wrap items-center gap-2 border-t pt-3">
         <ChangePasswordDialog userId={user.id} />
-        <form action={setUserActiveAction.bind(null, user.id, !user.isActive)}>
-          <Button type="submit" variant="outline" size="sm">
-            {user.isActive ? "השבתה" : "הפעלה"}
-          </Button>
-        </form>
+        {canManage && (
+          <form action={setUserActiveAction.bind(null, user.id, !user.isActive)}>
+            <Button type="submit" variant="outline" size="sm">
+              {user.isActive ? "השבתה" : "הפעלה"}
+            </Button>
+          </form>
+        )}
         <span className={`text-xs ${user.isActive ? "text-success" : "text-muted-foreground"}`}>
           {user.isActive ? "פעיל/ה" : "מושבת/ת"}
         </span>
       </div>
+
+      {canManage && (
+        <form
+          action={async (fd) => {
+            await setUserScopeAction(user.id, fd);
+            toast.success("ההרשאות נשמרו");
+          }}
+          className="grid gap-3 border-t pt-3 sm:grid-cols-3"
+        >
+          <div className="flex items-center gap-2 pt-6">
+            <input
+              id={`admin-${user.id}`}
+              name="isAdmin"
+              type="checkbox"
+              defaultChecked={user.isAdmin}
+              className="h-4 w-4 rounded border-input"
+            />
+            <Label htmlFor={`admin-${user.id}`} className="font-normal">
+              מנהל/ת (רואה הכול)
+            </Label>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`scope-${user.id}`}>היקף צפייה</Label>
+            <select
+              id={`scope-${user.id}`}
+              name="accessScope"
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+              className={selectClass}
+            >
+              {Object.entries(ACCESS_SCOPES).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+          {scope === "custom" && (
+            <div className="space-y-1">
+              <Label htmlFor={`vis-${user.id}`}>רואה גם את</Label>
+              <select
+                id={`vis-${user.id}`}
+                name="visibleUserIds"
+                multiple
+                defaultValue={user.visibleUserIds}
+                className="min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+              >
+                {allUsers
+                  .filter((u) => u.id !== user.id)
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.fullName}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+          <div className="sm:col-span-3">
+            <SaveButton label="שמירת הרשאות" />
+          </div>
+        </form>
+      )}
     </div>
   );
 }

@@ -25,6 +25,7 @@ function parseBase(formData: FormData) {
     opposingParty: formData.get("opposingParty") ?? "",
     court: formData.get("court") ?? "",
     responsibleLawyerId: formData.get("responsibleLawyerId") ?? "",
+    onedriveUrl: formData.get("onedriveUrl") ?? "",
   });
 }
 
@@ -56,6 +57,7 @@ export async function createCaseAction(
         opposingParty: data.opposingParty || null,
         court: data.court || null,
         responsibleLawyerId: data.responsibleLawyerId || null,
+        onedriveUrl: data.onedriveUrl || null,
         typeFields,
         status: "new",
         createdBy: user.id,
@@ -113,6 +115,7 @@ export async function updateCaseAction(
         opposingParty: data.opposingParty || null,
         court: data.court || null,
         responsibleLawyerId: data.responsibleLawyerId || null,
+        onedriveUrl: data.onedriveUrl || null,
         typeFields,
       })
       .where(eq(cases.id, caseId));

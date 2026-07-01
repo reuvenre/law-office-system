@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { getViewer } from "@/lib/auth/viewer";
 import { getDocument } from "@/lib/data/documents";
 
 /**
@@ -15,7 +16,8 @@ export async function GET(
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const doc = await getDocument(params.docId);
+  const viewer = await getViewer();
+  const doc = await getDocument(params.docId, viewer.allowedIds);
   if (!doc?.storagePath) {
     return new Response("Not found", { status: 404 });
   }

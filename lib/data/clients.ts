@@ -1,30 +1,27 @@
 import { db } from "@/lib/db";
 import { clients, cases, notes, users } from "@/lib/db/schema";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { caseScope, clientScope, withScope } from "@/lib/auth/scope";
 
-export async function listClients(search?: string) {
-  const base = db.select().from(clients);
-  if (search && search.trim()) {
-    const q = `%${search.trim()}%`;
-    return base
-      .where(
-        or(
-          ilike(clients.fullName, q),
-          ilike(clients.idNumber, q),
-          ilike(clients.phone, q)
+type Ids = string[] | null;
+
+export async function listClients(allowedIds: Ids, search?: string) {
+  const searchCond =
+    search && search.trim()
+      ? or(
+          ilike(clients.fullName, `%${search.trim()}%`),
+          ilike(clients.idNumber, `%${search.trim()}%`),
+          ilike(clients.phone, `%${search.trim()}%`)
         )
-      )
-      .orderBy(desc(clients.createdAt));
-  }
-  return base.orderBy(desc(clients.createdAt));
+      : undefined;
+  const where = withScope(searchCond, clientScope(allowedIds));
+  const q = db.select().from(clients);
+  return (where ? q.where(where) : q).orderBy(desc(clients.createdAt));
 }
 
-export async function getClient(id: string) {
-  const rows = await db
-    .select()
-    .from(clients)
-    .where(eq(clients.id, id))
-    .limit(1);
+export async function getClient(id: string, allowedIds: Ids) {
+  const where = withScope(eq(clients.id, id), clientScope(allowedIds));
+  const rows = await db.select().from(clients).where(where).limit(1);
   return rows[0] ?? null;
 }
 
@@ -42,18 +39,18 @@ export async function getClientNotes(clientId: string) {
     .orderBy(desc(notes.createdAt));
 }
 
-export async function getClientCases(clientId: string) {
+export async function getClientCases(clientId: string, allowedIds: Ids) {
+  const where = withScope(eq(cases.clientId, clientId), caseScope(allowedIds));
   return db
     .select()
     .from(cases)
-    .where(eq(cases.clientId, clientId))
+    .where(where)
     .orderBy(desc(cases.createdAt));
 }
 
 /**
- * Conflict-of-interest check (spec §6.8): does this name already appear as a
- * client, or as the opposing party in any case? Non-blocking — returns matches
- * for a warning.
+ * Conflict-of-interest check (spec §6.8) — intentionally firm-wide regardless
+ * of the viewer's scope, so conflicts are never missed.
  */
 export async function checkNameConflicts(name: string) {
   const q = `%${name.trim()}%`;

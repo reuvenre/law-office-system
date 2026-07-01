@@ -70,6 +70,13 @@ export const ROLES = {
 } as const;
 export type Role = keyof typeof ROLES;
 
+export const ACCESS_SCOPES = {
+  all: "כל המשרד",
+  own: "רק שלי",
+  custom: 'עו"ד נבחרים',
+} as const;
+export type AccessScope = keyof typeof ACCESS_SCOPES;
+
 export const CLIENT_TYPES = {
   individual: "יחיד",
   company: "תאגיד",

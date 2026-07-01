@@ -1,5 +1,6 @@
 import { listClients } from "@/lib/data/clients";
 import { listActiveLawyers } from "@/lib/data/users";
+import { getViewer } from "@/lib/auth/viewer";
 import { createCaseAction } from "@/app/(app)/cases/actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { ConflictChecker } from "@/components/shared/conflict-checker";
@@ -12,8 +13,9 @@ export default async function NewCasePage({
 }: {
   searchParams: { clientId?: string };
 }) {
+  const viewer = await getViewer();
   const [clientRows, lawyers] = await Promise.all([
-    listClients(),
+    listClients(viewer.allowedIds),
     listActiveLawyers(),
   ]);
   const clients = clientRows.map((c) => ({ id: c.id, fullName: c.fullName }));
