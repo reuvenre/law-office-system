@@ -21,6 +21,7 @@ export const authConfig = {
         pathname === "/" ||
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/cron") ||
+        pathname.startsWith("/api/webhooks") ||
         pathname.startsWith("/api/integrations");
 
       if (isAuthRoute) {

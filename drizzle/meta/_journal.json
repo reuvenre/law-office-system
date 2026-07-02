@@ -43,6 +43,13 @@
       "when": 1782979450319,
       "tag": "0005_erp_integration",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782980353911,
+      "tag": "0006_charges_caseid_nullable",
+      "breakpoints": true
     }
   ]
 }

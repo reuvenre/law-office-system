@@ -568,9 +568,7 @@ export const charges = pgTable("charges", {
     .notNull()
     .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
-  caseId: uuid("case_id")
-    .notNull()
-    .references(() => cases.id),
+  caseId: uuid("case_id").references(() => cases.id),
   clientId: uuid("client_id")
     .notNull()
     .references(() => clients.id),

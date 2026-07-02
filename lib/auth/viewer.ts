@@ -56,3 +56,12 @@ export async function requireAdmin(): Promise<Viewer> {
   if (!v.isAdmin) redirect("/dashboard");
   return v;
 }
+
+/** Gate for finance actions (invoices/payments/trust): admin or accountant. */
+export async function requireFinanceRole(): Promise<Viewer> {
+  const v = await getViewer();
+  if (!v.isAdmin && v.role !== "admin" && v.role !== "accountant") {
+    redirect("/dashboard");
+  }
+  return v;
+}
