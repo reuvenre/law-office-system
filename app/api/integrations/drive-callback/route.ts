@@ -48,6 +48,7 @@ export async function POST(req: Request) {
     }
     return Response.json({ ok: true });
   } catch (e) {
-    return Response.json({ ok: false, error: String(e) }, { status: 500 });
+    console.error("drive-callback failed", e);
+    return Response.json({ ok: false }, { status: 500 });
   }
 }

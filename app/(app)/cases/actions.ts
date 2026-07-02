@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { cases, caseStatusHistory } from "@/lib/db/schema";
-import { requireLawyer } from "@/lib/auth/guards";
+import { getViewer } from "@/lib/auth/viewer";
+import { canAccessCase, canAccessClient } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
 import { caseBaseSchema, CASE_STATUS_VALUES } from "@/lib/validations/case";
 import { collectTypeFields } from "@/lib/practice-areas";
@@ -33,13 +34,16 @@ export async function createCaseAction(
   _prev: CaseFormState,
   formData: FormData
 ): Promise<CaseFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
   const parsed = parseBase(formData);
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
   const data = parsed.data;
+  if (!(await canAccessClient(data.clientId, user.allowedIds))) {
+    return { error: "אין הרשאה ללקוח זה" };
+  }
   const typeFields = collectTypeFields(
     data.practiceArea as PracticeArea,
     formData
@@ -93,7 +97,10 @@ export async function updateCaseAction(
   _prev: CaseFormState,
   formData: FormData
 ): Promise<CaseFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessCase(caseId, user.allowedIds))) {
+    return { error: "אין הרשאה לתיק זה" };
+  }
   const parsed = parseBase(formData);
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
@@ -139,7 +146,8 @@ export async function updateCaseAction(
  * Update + history insert run atomically via db.batch.
  */
 export async function changeCaseStatusAction(caseId: string, formData: FormData) {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessCase(caseId, user.allowedIds))) return;
   const toStatus = String(formData.get("status"));
   const note = (formData.get("note") as string)?.trim() || null;
 
@@ -180,7 +188,8 @@ export async function changeCaseStatusAction(caseId: string, formData: FormData)
 }
 
 export async function deleteCaseAction(caseId: string) {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessCase(caseId, user.allowedIds))) return;
   await db.delete(cases).where(eq(cases.id, caseId));
   await logActivity({
     actorId: user.id,

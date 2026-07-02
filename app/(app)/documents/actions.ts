@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { documents } from "@/lib/db/schema";
-import { requireLawyer } from "@/lib/auth/guards";
+import { getViewer } from "@/lib/auth/viewer";
+import { canAccessCase, canAccessClient, canAccessDocument } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
 import { notifyMakeDocumentUploaded } from "@/lib/drive/notify-make";
 import type { DocumentCategory } from "@/lib/constants";
@@ -16,7 +17,7 @@ export async function uploadDocumentAction(
   _prev: DocFormState,
   formData: FormData
 ): Promise<DocFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
   const file = formData.get("file") as File | null;
   const clientId = (formData.get("clientId") as string) || "";
   const caseId = (formData.get("caseId") as string) || null;
@@ -25,6 +26,12 @@ export async function uploadDocumentAction(
 
   if (!file || file.size === 0) return { error: "לא נבחר קובץ" };
   if (!clientId) return { error: "חסר שיוך ללקוח" };
+  if (!(await canAccessClient(clientId, user.allowedIds))) {
+    return { error: "אין הרשאה ללקוח זה" };
+  }
+  if (caseId && !(await canAccessCase(caseId, user.allowedIds))) {
+    return { error: "אין הרשאה לתיק זה" };
+  }
 
   const safeName = file.name.replace(/[^\w.\-]+/g, "_");
   const path = `clients/${clientId}/${caseId ?? "general"}/${crypto.randomUUID()}_${safeName}`;
@@ -82,7 +89,8 @@ export async function deleteDocumentAction(
   caseId: string | null,
   clientId: string
 ) {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessDocument(docId, user.allowedIds))) return;
   const [doc] = await db
     .select({ storagePath: documents.storagePath })
     .from(documents)

@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { deadlines } from "@/lib/db/schema";
-import { requireLawyer } from "@/lib/auth/guards";
+import { getViewer } from "@/lib/auth/viewer";
+import { canAccessCase } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
 import { parseLocalDateTime } from "@/lib/datetime";
 
@@ -22,11 +23,14 @@ export async function addDeadlineAction(
   _prev: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
   const caseId = String(formData.get("caseId") || "");
   const title = (formData.get("title") as string)?.trim();
   const dueAt = parseLocalDateTime(formData.get("dueAt"));
   if (!caseId || !title || !dueAt) return { error: "כותרת, מועד ותיק הם חובה" };
+  if (!(await canAccessCase(caseId, user.allowedIds))) {
+    return { error: "אין הרשאה לתיק זה" };
+  }
 
   const [row] = await db
     .insert(deadlines)
@@ -56,7 +60,10 @@ export async function updateDeadlineAction(
   _prev: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessCase(caseId, user.allowedIds))) {
+    return { error: "אין הרשאה" };
+  }
   const title = (formData.get("title") as string)?.trim();
   const dueAt = parseLocalDateTime(formData.get("dueAt"));
   if (!title || !dueAt) return { error: "כותרת ומועד הם חובה" };
@@ -68,7 +75,7 @@ export async function updateDeadlineAction(
       dueAt,
       priority: String(formData.get("priority") || "normal") as Priority,
     })
-    .where(eq(deadlines.id, deadlineId));
+    .where(and(eq(deadlines.id, deadlineId), eq(deadlines.caseId, caseId)));
 
   await logActivity({
     actorId: user.id,
@@ -85,11 +92,12 @@ export async function toggleDeadlineAction(
   caseId: string,
   nextDone: boolean
 ) {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessCase(caseId, user.allowedIds))) return;
   await db
     .update(deadlines)
     .set({ isDone: nextDone, doneBy: nextDone ? user.id : null })
-    .where(eq(deadlines.id, deadlineId));
+    .where(and(eq(deadlines.id, deadlineId), eq(deadlines.caseId, caseId)));
   await logActivity({
     actorId: user.id,
     entityType: "deadline",
@@ -101,8 +109,11 @@ export async function toggleDeadlineAction(
 }
 
 export async function deleteDeadlineAction(deadlineId: string, caseId: string) {
-  const user = await requireLawyer();
-  await db.delete(deadlines).where(eq(deadlines.id, deadlineId));
+  const user = await getViewer();
+  if (!(await canAccessCase(caseId, user.allowedIds))) return;
+  await db
+    .delete(deadlines)
+    .where(and(eq(deadlines.id, deadlineId), eq(deadlines.caseId, caseId)));
   await logActivity({
     actorId: user.id,
     entityType: "deadline",

@@ -77,4 +77,48 @@ export function withScope(
   return base ?? scope;
 }
 
+/* ------------------------------------------------------------------ */
+/* Write-side guards — verify a specific entity is visible before a    */
+/* mutation. Return true when the viewer may act on it.                */
+/* ------------------------------------------------------------------ */
+export async function canAccessCase(caseId: string, allowedIds: string[] | null) {
+  if (allowedIds === null) return true;
+  const rows = await db
+    .select({ id: cases.id })
+    .from(cases)
+    .where(withScope(eq(cases.id, caseId), caseScope(allowedIds)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function canAccessClient(clientId: string, allowedIds: string[] | null) {
+  if (allowedIds === null) return true;
+  const rows = await db
+    .select({ id: clients.id })
+    .from(clients)
+    .where(withScope(eq(clients.id, clientId), clientScope(allowedIds)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function canAccessDocument(docId: string, allowedIds: string[] | null) {
+  if (allowedIds === null) return true;
+  const rows = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(withScope(eq(documents.id, docId), documentScope(allowedIds)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function canAccessTask(taskId: string, allowedIds: string[] | null) {
+  if (allowedIds === null) return true;
+  const rows = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(withScope(eq(tasks.id, taskId), taskScope(allowedIds)))
+    .limit(1);
+  return rows.length > 0;
+}
+
 export { eq };

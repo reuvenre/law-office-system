@@ -15,8 +15,13 @@ export const authConfig = {
       const { pathname } = nextUrl;
 
       const isAuthRoute = pathname.startsWith("/login");
+      // Machine endpoints authenticate via their own shared secret, not a
+      // user session — they must bypass session-based middleware.
       const isPublic =
-        pathname === "/" || pathname.startsWith("/api/auth");
+        pathname === "/" ||
+        pathname.startsWith("/api/auth") ||
+        pathname.startsWith("/api/cron") ||
+        pathname.startsWith("/api/integrations");
 
       if (isAuthRoute) {
         if (isLoggedIn) {

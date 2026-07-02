@@ -6,6 +6,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clients } from "@/lib/db/schema";
 import { requireLawyer } from "@/lib/auth/guards";
+import { getViewer } from "@/lib/auth/viewer";
+import { canAccessClient } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
 import { clientSchema } from "@/lib/validations/client";
 import { checkNameConflicts } from "@/lib/data/clients";
@@ -67,7 +69,10 @@ export async function updateClientAction(
   _prev: ClientFormState,
   formData: FormData
 ): Promise<ClientFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessClient(clientId, user.allowedIds))) {
+    return { error: "אין הרשאה ללקוח זה" };
+  }
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
@@ -98,7 +103,8 @@ export async function checkConflictsAction(name: string) {
 }
 
 export async function deleteClientAction(clientId: string) {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessClient(clientId, user.allowedIds))) return;
   await db.delete(clients).where(eq(clients.id, clientId));
   await logActivity({
     actorId: user.id,

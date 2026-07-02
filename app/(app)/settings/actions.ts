@@ -14,7 +14,10 @@ export type UserFormState = { error?: string } | undefined;
 type Role = "lawyer" | "assistant";
 type Scope = "all" | "own" | "custom";
 
-/** Update name / email / phone (self or admin); role changes are admin-only. */
+/**
+ * Update a user. Name/phone: self or admin. Email + role: admin only
+ * (email is the login identity, so self-service change is blocked).
+ */
 export async function updateUserAction(
   userId: string,
   formData: FormData
@@ -26,23 +29,25 @@ export async function updateUserAction(
 
   const fullName = (formData.get("fullName") as string)?.trim();
   const phone = (formData.get("phone") as string)?.trim() || null;
-  const email = String(formData.get("email") || "").trim().toLowerCase();
-  if (!fullName || !email) return { error: "שם ואימייל הם שדות חובה" };
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    return { error: "אימייל לא תקין" };
-  }
+  if (!fullName) return { error: "שם הוא שדה חובה" };
 
-  const clash = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(eq(users.email, email), ne(users.id, userId)))
-    .limit(1);
-  if (clash[0]) return { error: "אימייל כבר קיים במערכת" };
+  const patch: Record<string, unknown> = { fullName, phone };
 
-  const patch: Record<string, unknown> = { fullName, phone, email };
   if (viewer.isAdmin) {
+    const email = String(formData.get("email") || "").trim().toLowerCase();
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return { error: "אימייל לא תקין" };
+    }
+    const clash = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.email, email), ne(users.id, userId)))
+      .limit(1);
+    if (clash[0]) return { error: "אימייל כבר קיים במערכת" };
+    patch.email = email;
     patch.role = String(formData.get("role") || "lawyer") as Role;
   }
+
   await db.update(users).set(patch).where(eq(users.id, userId));
   revalidatePath("/settings");
   return undefined;

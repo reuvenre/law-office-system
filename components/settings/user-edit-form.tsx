@@ -121,10 +121,20 @@ export function UserEditForm({
         )}
         <div className="space-y-1 sm:col-span-3">
           <Label htmlFor={`email-${user.id}`}>אימייל</Label>
-          <Input id={`email-${user.id}`} name="email" type="email" dir="ltr" defaultValue={user.email} required />
-          <p className="text-xs text-muted-foreground">
-            שינוי האימייל משנה את זהות ההתחברות של המשתמש/ת.
-          </p>
+          <Input
+            id={`email-${user.id}`}
+            name="email"
+            type="email"
+            dir="ltr"
+            defaultValue={user.email}
+            disabled={!canManage}
+            required={canManage}
+          />
+          {canManage && (
+            <p className="text-xs text-muted-foreground">
+              שינוי האימייל משנה את זהות ההתחברות של המשתמש/ת.
+            </p>
+          )}
         </div>
         <div className="sm:col-span-3">
           <SaveButton />

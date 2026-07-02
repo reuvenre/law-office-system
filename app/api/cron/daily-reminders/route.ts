@@ -9,17 +9,19 @@ export const maxDuration = 60;
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+  // Fail closed: without a configured secret the job must not be callable.
+  if (!secret) {
+    return new Response("Cron not configured", { status: 503 });
+  }
+  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   try {
     const summary = await runDailyReminders();
     return Response.json({ ok: true, ...summary });
   } catch (e) {
-    return Response.json({ ok: false, error: String(e) }, { status: 500 });
+    console.error("daily-reminders failed", e);
+    return Response.json({ ok: false }, { status: 500 });
   }
 }

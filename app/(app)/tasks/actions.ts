@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
-import { requireLawyer } from "@/lib/auth/guards";
+import { getViewer } from "@/lib/auth/viewer";
+import { canAccessCase, canAccessTask } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
 import { parseLocalDateTime } from "@/lib/datetime";
 
@@ -22,11 +23,14 @@ export async function addTaskAction(
   _prev: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "כותרת היא שדה חובה" };
 
   const caseId = (formData.get("caseId") as string) || null;
+  if (caseId && !(await canAccessCase(caseId, user.allowedIds))) {
+    return { error: "אין הרשאה לתיק זה" };
+  }
   const assignedTo = (formData.get("assignedTo") as string) || null;
   const dueAt = parseLocalDateTime(formData.get("dueAt"));
 
@@ -52,7 +56,10 @@ export async function updateTaskAction(
   _prev: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessTask(taskId, user.allowedIds))) {
+    return { error: "אין הרשאה" };
+  }
   const title = (formData.get("title") as string)?.trim();
   if (!title) return { error: "כותרת היא שדה חובה" };
 
@@ -81,7 +88,8 @@ export async function setTaskStatusAction(
   caseId: string | null,
   formData: FormData
 ) {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessTask(taskId, user.allowedIds))) return;
   const status = String(formData.get("status")) as TaskStatus;
   await db.update(tasks).set({ status }).where(eq(tasks.id, taskId));
   await logActivity({
@@ -95,7 +103,8 @@ export async function setTaskStatusAction(
 }
 
 export async function deleteTaskAction(taskId: string, caseId: string | null) {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessTask(taskId, user.allowedIds))) return;
   await db.delete(tasks).where(eq(tasks.id, taskId));
   await logActivity({
     actorId: user.id,

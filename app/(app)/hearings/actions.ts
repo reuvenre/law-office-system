@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { hearings } from "@/lib/db/schema";
-import { requireLawyer } from "@/lib/auth/guards";
+import { getViewer } from "@/lib/auth/viewer";
+import { canAccessCase } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
 import { parseLocalDateTime } from "@/lib/datetime";
 
@@ -22,10 +23,13 @@ export async function addHearingAction(
   _prev: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
   const caseId = String(formData.get("caseId") || "");
   const hearingAt = parseLocalDateTime(formData.get("hearingAt"));
   if (!caseId || !hearingAt) return { error: "תאריך/שעה ותיק הם שדות חובה" };
+  if (!(await canAccessCase(caseId, user.allowedIds))) {
+    return { error: "אין הרשאה לתיק זה" };
+  }
 
   const [row] = await db
     .insert(hearings)
@@ -55,7 +59,10 @@ export async function updateHearingAction(
   _prev: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessCase(caseId, user.allowedIds))) {
+    return { error: "אין הרשאה" };
+  }
   const hearingAt = parseLocalDateTime(formData.get("hearingAt"));
   if (!hearingAt) return { error: "תאריך/שעה חובה" };
 
@@ -68,7 +75,7 @@ export async function updateHearingAction(
       status: String(formData.get("status")) as HearingStatus,
       outcome: (formData.get("outcome") as string)?.trim() || null,
     })
-    .where(eq(hearings.id, hearingId));
+    .where(and(eq(hearings.id, hearingId), eq(hearings.caseId, caseId)));
 
   await logActivity({
     actorId: user.id,
@@ -85,9 +92,13 @@ export async function updateHearingStatusAction(
   caseId: string,
   formData: FormData
 ) {
-  const user = await requireLawyer();
+  const user = await getViewer();
+  if (!(await canAccessCase(caseId, user.allowedIds))) return;
   const status = String(formData.get("status")) as HearingStatus;
-  await db.update(hearings).set({ status }).where(eq(hearings.id, hearingId));
+  await db
+    .update(hearings)
+    .set({ status })
+    .where(and(eq(hearings.id, hearingId), eq(hearings.caseId, caseId)));
   await logActivity({
     actorId: user.id,
     entityType: "hearing",
@@ -99,8 +110,11 @@ export async function updateHearingStatusAction(
 }
 
 export async function deleteHearingAction(hearingId: string, caseId: string) {
-  const user = await requireLawyer();
-  await db.delete(hearings).where(eq(hearings.id, hearingId));
+  const user = await getViewer();
+  if (!(await canAccessCase(caseId, user.allowedIds))) return;
+  await db
+    .delete(hearings)
+    .where(and(eq(hearings.id, hearingId), eq(hearings.caseId, caseId)));
   await logActivity({
     actorId: user.id,
     entityType: "hearing",
