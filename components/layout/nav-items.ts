@@ -21,7 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "דשבורד", icon: LayoutDashboard },
   { href: "/clients", label: "לקוחות", icon: Users },
   { href: "/cases", label: "תיקים", icon: Briefcase },
-  { href: "/hearings", label: "דיונים", icon: CalendarDays },
+  { href: "/hearings", label: "יומן", icon: CalendarDays },
   { href: "/deadlines", label: "מועדים", icon: Clock },
   { href: "/tasks", label: "משימות", icon: CheckSquare },
   { href: "/search", label: "חיפוש", icon: Search },

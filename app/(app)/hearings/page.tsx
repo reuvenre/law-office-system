@@ -1,49 +1,47 @@
-import Link from "next/link";
-import { listScheduledHearings } from "@/lib/data/events";
+import { listScheduledHearings, listOpenDeadlines } from "@/lib/data/events";
 import { getViewer } from "@/lib/auth/viewer";
 import { PageHeader } from "@/components/shared/page-header";
-import { EmptyState } from "@/components/shared/empty-state";
-import { Card, CardContent } from "@/components/ui/card";
-import { formatDateTime } from "@/lib/format";
+import {
+  OfficeCalendar,
+  type CalendarEvent,
+} from "@/components/hearings/office-calendar";
 
 export const dynamic = "force-dynamic";
 
 export default async function HearingsPage() {
   const viewer = await getViewer();
-  const rows = await listScheduledHearings(viewer.allowedIds);
+  const [hearings, deadlines] = await Promise.all([
+    listScheduledHearings(viewer.allowedIds),
+    listOpenDeadlines(viewer.allowedIds),
+  ]);
+
+  const events: CalendarEvent[] = [
+    ...hearings.map((h) => ({
+      id: `h-${h.id}`,
+      at: new Date(h.hearingAt).toISOString(),
+      title: h.hearingType || "דיון",
+      subtitle: [h.clientName, h.caseTitle, h.location]
+        .filter(Boolean)
+        .join(" · "),
+      href: `/cases/${h.caseId}`,
+      kind: "hearing" as const,
+      hasTime: true,
+    })),
+    ...deadlines.map((d) => ({
+      id: `d-${d.id}`,
+      at: new Date(d.dueAt).toISOString(),
+      title: d.title,
+      subtitle: [d.clientName, d.caseTitle].filter(Boolean).join(" · "),
+      href: `/cases/${d.caseId}`,
+      kind: "deadline" as const,
+      hasTime: false,
+    })),
+  ];
 
   return (
     <div>
-      <PageHeader title="דיונים" description="כל הדיונים המתוכננים" />
-      {rows.length === 0 ? (
-        <EmptyState title="אין דיונים מתוכננים" />
-      ) : (
-        <Card>
-          <CardContent className="pt-6">
-            <ul className="divide-y">
-              {rows.map((h) => (
-                <li key={h.id} className="flex items-center justify-between gap-3 py-3">
-                  <div>
-                    <p className="text-sm font-medium" dir="ltr">
-                      {formatDateTime(h.hearingAt)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {h.clientName} · {h.hearingType || "דיון"}
-                      {h.location ? ` · ${h.location}` : ""}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/cases/${h.caseId}`}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    {h.caseTitle}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+      <PageHeader title="יומן המשרד" description="דיונים ומועדים — יומן משותף לכל המשרד" />
+      <OfficeCalendar events={events} />
     </div>
   );
 }
