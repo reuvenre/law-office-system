@@ -157,44 +157,51 @@ export async function createProforma(
       )
     );
   if (!rows.length) throw new Error("אין חיובים פתוחים");
+  const pendingIds = rows.map((c) => c.id);
 
   const subtotal = round2(rows.reduce((s, c) => s + Number(c.amount), 0));
   const vatAmount = round2((subtotal * VAT_RATE) / 100);
   const docNumber = await nextCounter(firmId, "proforma");
 
-  const [invoice] = await db
-    .insert(invoices)
-    .values({
-      firmId,
-      clientId,
-      docType: "proforma",
-      docNumber,
-      subtotal: String(subtotal),
-      vatRate: String(VAT_RATE),
-      vatAmount: String(vatAmount),
-      total: String(round2(subtotal + vatAmount)),
-      status: "draft",
-      createdBy,
-    })
-    .returning();
+  // Invoice + lines + charge flips in one atomic batch (Neon runs a batch as
+  // a single transaction), so a mid-flight failure can't leave a proforma
+  // without lines or charges half-invoiced. The id is generated client-side
+  // so the dependent statements can reference it inside the same batch.
+  const invoiceId = crypto.randomUUID();
+  const [inserted] = await db.batch([
+    db
+      .insert(invoices)
+      .values({
+        id: invoiceId,
+        firmId,
+        clientId,
+        docType: "proforma",
+        docNumber,
+        subtotal: String(subtotal),
+        vatRate: String(VAT_RATE),
+        vatAmount: String(vatAmount),
+        total: String(round2(subtotal + vatAmount)),
+        status: "draft",
+        createdBy,
+      })
+      .returning(),
+    db.insert(invoiceLines).values(
+      rows.map((c) => ({
+        invoiceId,
+        chargeId: c.id,
+        description: c.description,
+        quantity: "1",
+        unitPrice: String(c.amount),
+        lineTotal: String(c.amount),
+      }))
+    ),
+    db
+      .update(charges)
+      .set({ status: "invoiced", invoiceId })
+      .where(and(inArray(charges.id, pendingIds), eq(charges.status, "pending"))),
+  ]);
 
-  await db.insert(invoiceLines).values(
-    rows.map((c) => ({
-      invoiceId: invoice.id,
-      chargeId: c.id,
-      description: c.description,
-      quantity: "1",
-      unitPrice: String(c.amount),
-      lineTotal: String(c.amount),
-    }))
-  );
-
-  await db
-    .update(charges)
-    .set({ status: "invoiced", invoiceId: invoice.id })
-    .where(inArray(charges.id, chargeIds));
-
-  return invoice;
+  return inserted[0];
 }
 
 /** Record a payment and recompute invoice status. Called by the payment webhook. */
@@ -215,6 +222,29 @@ export async function recordPayment(
     .where(and(eq(invoices.id, invoiceId), eq(invoices.firmId, firmId)))
     .limit(1);
   if (!invoice) throw new Error("חשבונית לא נמצאה");
+
+  // Idempotency: payment providers retry webhooks. A transaction we already
+  // recorded must not be inserted twice or flip the invoice status again.
+  if (payment.providerTxnId) {
+    const dup = await db
+      .select({ id: payments.id })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.provider, payment.provider ?? ""),
+          eq(payments.providerTxnId, payment.providerTxnId)
+        )
+      )
+      .limit(1);
+    if (dup.length > 0) {
+      const paid = await db
+        .select({ amount: payments.amount })
+        .from(payments)
+        .where(eq(payments.invoiceId, invoiceId));
+      const totalPaid = paid.reduce((s, p) => s + Number(p.amount), 0);
+      return { status: invoice.status, totalPaid, duplicate: true as const };
+    }
+  }
 
   await db.insert(payments).values({
     firmId,

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clients } from "@/lib/db/schema";
-import { requireLawyer } from "@/lib/auth/guards";
+import { requireUser } from "@/lib/auth/guards";
 import { getViewer } from "@/lib/auth/viewer";
 import { canAccessClient } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
@@ -36,7 +36,7 @@ export async function createClientAction(
   _prev: ClientFormState,
   formData: FormData
 ): Promise<ClientFormState> {
-  const user = await requireLawyer();
+  const user = await requireUser();
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
@@ -95,7 +95,7 @@ export async function updateClientAction(
 }
 
 export async function checkConflictsAction(name: string) {
-  await requireLawyer();
+  await requireUser();
   if (!name || name.trim().length < 2) {
     return { clientMatches: [], opposingMatches: [] };
   }

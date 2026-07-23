@@ -50,6 +50,13 @@
       "when": 1782980353911,
       "tag": "0006_charges_caseid_nullable",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784812513652,
+      "tag": "0007_payment_idempotency",
+      "breakpoints": true
     }
   ]
 }

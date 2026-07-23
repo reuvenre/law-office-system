@@ -34,7 +34,9 @@ export async function POST(request: Request) {
       method: (body.method as PaymentMethod) ?? "credit_card",
       amount,
       reference: body.reference as string | undefined,
-      provider: body.provider as string | undefined,
+      // Always store a concrete provider so the (provider, provider_txn_id)
+      // unique constraint actually dedupes retried webhooks.
+      provider: (body.provider as string | undefined) ?? "unknown",
       providerTxnId: body.providerTxnId as string | undefined,
     });
     return Response.json({ ok: true, ...result });

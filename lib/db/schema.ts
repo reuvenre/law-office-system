@@ -630,24 +630,30 @@ export const invoiceLines = pgTable("invoice_lines", {
   lineTotal: numeric("line_total", { precision: 12, scale: 2 }).notNull(),
 });
 
-export const payments = pgTable("payments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  firmId: uuid("firm_id")
-    .notNull()
-    .default(DEFAULT_FIRM_ID)
-    .references(() => firms.id),
-  invoiceId: uuid("invoice_id").references(() => invoices.id),
-  clientId: uuid("client_id")
-    .notNull()
-    .references(() => clients.id),
-  method: paymentMethodEnum("method").notNull(),
-  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-  reference: text("reference"),
-  provider: text("provider"),
-  providerTxnId: text("provider_txn_id"),
-  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    firmId: uuid("firm_id")
+      .notNull()
+      .default(DEFAULT_FIRM_ID)
+      .references(() => firms.id),
+    invoiceId: uuid("invoice_id").references(() => invoices.id),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id),
+    method: paymentMethodEnum("method").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    reference: text("reference"),
+    provider: text("provider"),
+    providerTxnId: text("provider_txn_id"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Webhook idempotency: a provider transaction may only be recorded once.
+  // NULL provider_txn_id rows (manual payments) are unaffected.
+  (t) => ({ uqTxn: unique().on(t.provider, t.providerTxnId) })
+);
 
 export const trustAccounts = pgTable("trust_accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
