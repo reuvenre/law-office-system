@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { cases, clients, tasks, documents } from "@/lib/db/schema";
+import { cases, clients, tasks, documents, invoices } from "@/lib/db/schema";
 
 /**
  * SQL visibility conditions derived from a viewer's allowedIds
@@ -68,6 +68,17 @@ export function documentScope(allowedIds: string[] | null): SQL | undefined {
   );
 }
 
+/** An invoice is visible when its client is visible to the viewer. */
+export function invoiceScope(allowedIds: string[] | null): SQL | undefined {
+  if (allowedIds === null) return undefined;
+  if (allowedIds.length === 0) return sql`false`;
+  const visibleClientIds = db
+    .select({ id: clients.id })
+    .from(clients)
+    .where(clientScope(allowedIds));
+  return inArray(invoices.clientId, visibleClientIds);
+}
+
 /** Combine an existing filter with a scope condition. */
 export function withScope(
   base: SQL | undefined,
@@ -117,6 +128,16 @@ export async function canAccessTask(taskId: string, allowedIds: string[] | null)
     .select({ id: tasks.id })
     .from(tasks)
     .where(withScope(eq(tasks.id, taskId), taskScope(allowedIds)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function canAccessInvoice(invoiceId: string, allowedIds: string[] | null) {
+  if (allowedIds === null) return true;
+  const rows = await db
+    .select({ id: invoices.id })
+    .from(invoices)
+    .where(withScope(eq(invoices.id, invoiceId), invoiceScope(allowedIds)))
     .limit(1);
   return rows.length > 0;
 }

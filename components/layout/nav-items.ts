@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Clock,
   CheckSquare,
+  Receipt,
   Search,
   Settings,
   type LucideIcon,
@@ -24,6 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/hearings", label: "יומן", icon: CalendarDays },
   { href: "/deadlines", label: "מועדים", icon: Clock },
   { href: "/tasks", label: "משימות", icon: CheckSquare },
+  { href: "/billing", label: "חיוב וגבייה", icon: Receipt },
   { href: "/search", label: "חיפוש", icon: Search },
   { href: "/settings", label: "הגדרות", icon: Settings },
 ];

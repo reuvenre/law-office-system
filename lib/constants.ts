@@ -67,8 +67,62 @@ export type TaskStatus = keyof typeof TASK_STATUSES;
 export const ROLES = {
   lawyer: 'עו"ד',
   assistant: "עוזר/ת",
+  admin: "מנהל/ת",
+  secretary: "מזכיר/ה",
+  accountant: "הנהלת חשבונות",
+  intern: "מתמחה",
 } as const;
 export type Role = keyof typeof ROLES;
+
+/* ------------------------------------------------------------------ */
+/* ERP / billing labels (mirror the pgEnum values in schema.ts)        */
+/* ------------------------------------------------------------------ */
+export const DOC_TYPES = {
+  proforma: "חשבון עסקה",
+  tax_invoice: 'חשבונית מס',
+  receipt: "קבלה",
+  invoice_receipt: "חשבונית מס-קבלה",
+  credit_note: "חשבונית זיכוי",
+} as const;
+export type DocType = keyof typeof DOC_TYPES;
+
+export const INVOICE_STATUSES = {
+  draft: "טיוטה",
+  sent: "נשלחה",
+  partially_paid: "שולמה חלקית",
+  paid: "שולמה",
+  cancelled: "בוטלה",
+} as const;
+export type InvoiceStatus = keyof typeof INVOICE_STATUSES;
+
+export const INVOICE_STATUS_VARIANT: Record<
+  InvoiceStatus,
+  "neutral" | "info" | "gold" | "success" | "warning" | "danger" | "muted"
+> = {
+  draft: "muted",
+  sent: "info",
+  partially_paid: "warning",
+  paid: "success",
+  cancelled: "danger",
+};
+
+export const PAYMENT_METHODS = {
+  bank_transfer: "העברה בנקאית",
+  credit_card: "כרטיס אשראי",
+  bit: "ביט",
+  check: "צ'ק",
+  cash: "מזומן",
+} as const;
+export type PaymentMethod = keyof typeof PAYMENT_METHODS;
+
+export const CHARGE_TYPES = {
+  fee: 'שכ"ט',
+  expense: "הוצאה",
+  court_fee: "אגרת בית משפט",
+  retainer: "ריטיינר",
+  success_fee: "שכר הצלחה",
+} as const;
+export type ChargeType = keyof typeof CHARGE_TYPES;
 
 export const ACCESS_SCOPES = {
   all: "כל המשרד",

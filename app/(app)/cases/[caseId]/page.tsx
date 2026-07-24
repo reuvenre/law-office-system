@@ -19,10 +19,12 @@ import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { AuthorStamp } from "@/components/shared/author-stamp";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
+  StatusBadge,
   CaseStatusBadge,
   PriorityBadge,
   HearingStatusBadge,
   TaskStatusBadge,
+  InvoiceStatusBadge,
 } from "@/components/shared/status-badge";
 import { StatusChanger } from "@/components/cases/status-changer";
 import { NoteComposer } from "@/components/notes/note-composer";
@@ -43,15 +45,28 @@ import {
   deleteDeadlineAction,
 } from "@/app/(app)/deadlines/actions";
 import { deleteTaskAction } from "@/app/(app)/tasks/actions";
+import {
+  listTimeEntries,
+  listPendingCharges,
+  listCaseInvoices,
+} from "@/lib/data/billing";
+import { TimeEntryComposer } from "@/components/billing/time-entry-composer";
+import {
+  BillTimeButton,
+  CreateProformaButton,
+} from "@/components/billing/case-billing-actions";
+import { deleteChargeAction } from "@/app/(app)/billing/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatCurrency } from "@/lib/format";
 import { PRACTICE_AREA_FIELDS } from "@/lib/practice-areas";
 import {
   PRACTICE_AREAS,
   DOCUMENT_CATEGORIES,
   SYNC_STATUSES,
+  DOC_TYPES,
+  CHARGE_TYPES,
   type PracticeArea,
   type CaseStatus,
   type Priority,
@@ -59,6 +74,9 @@ import {
   type TaskStatus,
   type DocumentCategory,
   type SyncStatus,
+  type DocType,
+  type ChargeType,
+  type InvoiceStatus,
 } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -84,16 +102,34 @@ export default async function CaseCardPage({
   const caseRow = await getCase(caseId, viewer.allowedIds);
   if (!caseRow) notFound();
 
-  const [history, hearings, deadlines, tasks, notes, documents, lawyers] =
-    await Promise.all([
-      getCaseStatusHistory(caseRow.id),
-      getCaseHearings(caseRow.id),
-      getCaseDeadlines(caseRow.id),
-      getCaseTasks(caseRow.id),
-      getCaseNotes(caseRow.id),
-      getCaseDocuments(caseRow.id),
-      listActiveLawyers(),
-    ]);
+  const [
+    history,
+    hearings,
+    deadlines,
+    tasks,
+    notes,
+    documents,
+    lawyers,
+    timeEntries,
+    pendingCharges,
+    caseInvoices,
+  ] = await Promise.all([
+    getCaseStatusHistory(caseRow.id),
+    getCaseHearings(caseRow.id),
+    getCaseDeadlines(caseRow.id),
+    getCaseTasks(caseRow.id),
+    getCaseNotes(caseRow.id),
+    getCaseDocuments(caseRow.id),
+    listActiveLawyers(),
+    listTimeEntries(caseRow.id),
+    listPendingCharges(caseRow.clientId),
+    listCaseInvoices(caseRow.id),
+  ]);
+
+  const canManageBilling =
+    viewer.isAdmin || viewer.role === "admin" || viewer.role === "accountant";
+  const pendingChargeIds = pendingCharges.map((c) => c.id);
+  const billingCount = timeEntries.length + pendingCharges.length + caseInvoices.length;
 
   const changeStatus = changeCaseStatusAction.bind(null, caseRow.id);
   const del = deleteCaseAction.bind(null, caseRow.id);
@@ -139,6 +175,7 @@ export default async function CaseCardPage({
           <TabsTrigger value="deadlines">מועדים ({deadlines.length})</TabsTrigger>
           <TabsTrigger value="tasks">משימות ({tasks.length})</TabsTrigger>
           <TabsTrigger value="documents">מסמכים ({documents.length})</TabsTrigger>
+          <TabsTrigger value="billing">חיובים ({billingCount})</TabsTrigger>
           <TabsTrigger value="notes">הערות ({notes.length})</TabsTrigger>
           <TabsTrigger value="history">היסטוריה</TabsTrigger>
         </TabsList>
@@ -368,6 +405,119 @@ export default async function CaseCardPage({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Billing */}
+        <TabsContent value="billing">
+          <div className="space-y-4">
+            {/* Time entries */}
+            <Card>
+              <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+                <CardTitle className="text-base">רישום שעות</CardTitle>
+                {canManageBilling && timeEntries.some((e) => e.t.billable && !e.t.invoiced) && (
+                  <BillTimeButton caseId={caseRow.id} />
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <TimeEntryComposer caseId={caseRow.id} />
+                {timeEntries.length === 0 ? (
+                  <EmptyState title="לא נרשמו שעות" />
+                ) : (
+                  <ul className="divide-y">
+                    {timeEntries.map(({ t, userName }) => (
+                      <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{t.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {userName || "—"} · {formatDate(t.entryDate)} ·{" "}
+                            <span dir="ltr">{(t.durationMin / 60).toFixed(2)} שע׳</span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          {!t.billable && <StatusBadge tone="muted">לא לחיוב</StatusBadge>}
+                          {t.invoiced && <StatusBadge tone="success">חויב</StatusBadge>}
+                          <span dir="ltr" className="text-muted-foreground">
+                            {formatCurrency((t.durationMin / 60) * Number(t.rate))}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Pending charges */}
+            <Card>
+              <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+                <CardTitle className="text-base">חיובים פתוחים ({pendingCharges.length})</CardTitle>
+                {canManageBilling && pendingCharges.length > 0 && (
+                  <CreateProformaButton
+                    clientId={caseRow.clientId}
+                    chargeIds={pendingChargeIds}
+                    caseId={caseRow.id}
+                  />
+                )}
+              </CardHeader>
+              <CardContent>
+                {pendingCharges.length === 0 ? (
+                  <EmptyState title="אין חיובים פתוחים" description="חיובים נוצרים מרישום שעות או ידנית." />
+                ) : (
+                  <ul className="divide-y">
+                    {pendingCharges.map((c) => (
+                      <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{c.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {CHARGE_TYPES[c.chargeType as ChargeType]} · {formatDate(c.chargeDate)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span dir="ltr" className="text-sm">
+                            {formatCurrency(Number(c.amount))}
+                          </span>
+                          {canManageBilling && (
+                            <InlineDelete action={deleteChargeAction.bind(null, c.id, caseRow.id)} />
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Case invoices */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">מסמכי חיוב ({caseInvoices.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {caseInvoices.length === 0 ? (
+                  <EmptyState title="אין מסמכי חיוב לתיק" />
+                ) : (
+                  <ul className="divide-y">
+                    {caseInvoices.map((inv) => (
+                      <li key={inv.id} className="flex items-center justify-between gap-3 py-3">
+                        <Link
+                          href={`/billing/${inv.id}`}
+                          className="text-sm font-medium text-primary hover:underline"
+                        >
+                          {DOC_TYPES[inv.docType as DocType]} #{inv.docNumber}
+                        </Link>
+                        <div className="flex items-center gap-2">
+                          <span dir="ltr" className="text-sm">
+                            {formatCurrency(Number(inv.total))}
+                          </span>
+                          <InvoiceStatusBadge status={inv.status as InvoiceStatus} />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Notes */}

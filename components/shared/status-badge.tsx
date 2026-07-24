@@ -5,10 +5,13 @@ import {
   PRIORITIES,
   HEARING_STATUSES,
   TASK_STATUSES,
+  INVOICE_STATUSES,
+  INVOICE_STATUS_VARIANT,
   type CaseStatus,
   type Priority,
   type HearingStatus,
   type TaskStatus,
+  type InvoiceStatus,
 } from "@/lib/constants";
 
 export type Tone =
@@ -83,4 +86,12 @@ const TASK_TONE: Record<TaskStatus, Tone> = {
 };
 export function TaskStatusBadge({ status }: { status: TaskStatus }) {
   return <StatusBadge tone={TASK_TONE[status]}>{TASK_STATUSES[status]}</StatusBadge>;
+}
+
+export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
+  return (
+    <StatusBadge tone={INVOICE_STATUS_VARIANT[status]}>
+      {INVOICE_STATUSES[status]}
+    </StatusBadge>
+  );
 }
