@@ -16,9 +16,16 @@ import {
   DEFAULT_FIRM_ID,
 } from "@/lib/db/schema";
 import type { FeeAgreement } from "@/lib/erp/types";
+import {
+  VAT_RATE,
+  round2,
+  computeInvoiceTotals,
+  feeFromEntries,
+  buildRetainerCharges,
+  paymentStatus as calcPaymentStatus,
+} from "@/lib/erp/calc";
 
-export const VAT_RATE = 18.0; // per-row on charges/invoices; update per law
-const round2 = (n: number) => Math.round(n * 100) / 100;
+export { VAT_RATE };
 
 /** Atomic per-firm sequential counter (mirrors the next_counter() SQL fn). */
 export async function nextCounter(firmId: string, name: string): Promise<number> {
@@ -56,40 +63,8 @@ export async function computeMonthlyRetainer(agreement: FeeAgreement, month: str
       )
     );
 
-  const totalHours = entries.reduce((s, e) => s + e.durationMin, 0) / 60;
-  const included = Number(agreement.retainerHours ?? 0);
-  const overageHours = Math.max(0, totalHours - included);
-  const overageRate = Number(agreement.overageRate ?? agreement.hourlyRate ?? 0);
-  const overageAmount = round2(overageHours * overageRate);
-
-  const list: {
-    firmId: string;
-    clientId: string;
-    chargeType: "retainer" | "fee";
-    description: string;
-    amount: string;
-    vatRate: string;
-  }[] = [
-    {
-      firmId: agreement.firmId,
-      clientId: agreement.clientId,
-      chargeType: "retainer",
-      description: `ריטיינר חודשי ${month} (${included} שעות כלולות)`,
-      amount: String(agreement.retainerAmount ?? 0),
-      vatRate: String(VAT_RATE),
-    },
-  ];
-  if (overageAmount > 0) {
-    list.push({
-      firmId: agreement.firmId,
-      clientId: agreement.clientId,
-      chargeType: "fee",
-      description: `שעות חורגות ${month}: ${overageHours.toFixed(2)} שעות`,
-      amount: String(overageAmount),
-      vatRate: String(VAT_RATE),
-    });
-  }
-  return { totalHours, overageHours, charges: list };
+  const totalMinutes = entries.reduce((s, e) => s + e.durationMin, 0);
+  return buildRetainerCharges(agreement, totalMinutes, month);
 }
 
 /** Turn un-invoiced billable time entries of a case into a single fee charge. */
@@ -111,9 +86,7 @@ export async function chargesFromTimeEntries(
     );
   if (!entries.length) return null;
 
-  const amount = round2(
-    entries.reduce((s, e) => s + (e.durationMin / 60) * Number(e.rate), 0)
-  );
+  const amount = feeFromEntries(entries);
   const totalMin = entries.reduce((s, e) => s + e.durationMin, 0);
   const [caseRow] = await db
     .select({ clientId: cases.clientId })
@@ -159,8 +132,9 @@ export async function createProforma(
   if (!rows.length) throw new Error("אין חיובים פתוחים");
   const pendingIds = rows.map((c) => c.id);
 
-  const subtotal = round2(rows.reduce((s, c) => s + Number(c.amount), 0));
-  const vatAmount = round2((subtotal * VAT_RATE) / 100);
+  const { subtotal, vatAmount, total } = computeInvoiceTotals(
+    rows.map((c) => Number(c.amount))
+  );
   const docNumber = await nextCounter(firmId, "proforma");
 
   // Invoice + lines + charge flips in one atomic batch (Neon runs a batch as
@@ -180,7 +154,7 @@ export async function createProforma(
         subtotal: String(subtotal),
         vatRate: String(VAT_RATE),
         vatAmount: String(vatAmount),
-        total: String(round2(subtotal + vatAmount)),
+        total: String(total),
         status: "draft",
         createdBy,
       })
@@ -261,9 +235,9 @@ export async function recordPayment(
     .select({ amount: payments.amount })
     .from(payments)
     .where(eq(payments.invoiceId, invoiceId));
-  const totalPaid = paid.reduce((s, p) => s + Number(p.amount), 0);
+  const totalPaid = round2(paid.reduce((s, p) => s + Number(p.amount), 0));
 
-  const status = totalPaid >= Number(invoice.total) ? "paid" : "partially_paid";
+  const status = calcPaymentStatus(totalPaid, Number(invoice.total));
   await db
     .update(invoices)
     .set({ status, ...(status === "paid" ? { paidAt: new Date() } : {}) })

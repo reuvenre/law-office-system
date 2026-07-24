@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { feeAgreements, charges } from "@/lib/db/schema";
 import { computeMonthlyRetainer, createProforma } from "@/lib/erp/billing";
+import { lastDayOfMonth as lastDayOf, retainerFiresToday } from "@/lib/erp/calc";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
       day: "2-digit",
     }).format(new Date()); // YYYY-MM-DD
     const [y, m, day] = todayStr.split("-").map(Number);
-    const lastDayOfMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const lastDayOfMonth = lastDayOf(y, m);
     const month = `${y}-${String(m).padStart(2, "0")}`; // YYYY-MM
 
     const agreements = (
@@ -42,11 +43,9 @@ export async function GET(request: Request) {
             inArray(feeAgreements.agreementType, ["retainer", "mixed"])
           )
         )
-    ).filter((ag) => {
-      const billingDay = ag.retainerBillingDay ?? 1;
-      // Clamp: a billing day past the end of a short month fires on its last day.
-      return billingDay === day || (day === lastDayOfMonth && billingDay > lastDayOfMonth);
-    });
+    ).filter((ag) =>
+      retainerFiresToday(ag.retainerBillingDay ?? 1, day, lastDayOfMonth)
+    );
 
     let proformas = 0;
     let chargesCreated = 0;
