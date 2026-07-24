@@ -23,9 +23,9 @@ export const dynamic = "force-dynamic";
 export default async function CasesPage({
   searchParams,
 }: {
-  searchParams: { q?: string };
+  searchParams: Promise<{ q?: string }>;
 }) {
-  const q = searchParams.q ?? "";
+  const q = (await searchParams).q ?? "";
   const viewer = await getViewer();
   const rows = await listCases(viewer.allowedIds, q);
 

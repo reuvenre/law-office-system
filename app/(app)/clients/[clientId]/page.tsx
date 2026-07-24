@@ -46,10 +46,11 @@ function Detail({ label, value, ltr }: { label: string; value?: string | null; l
 export default async function ClientCardPage({
   params,
 }: {
-  params: { clientId: string };
+  params: Promise<{ clientId: string }>;
 }) {
+  const { clientId } = await params;
   const viewer = await getViewer();
-  const client = await getClient(params.clientId, viewer.allowedIds);
+  const client = await getClient(clientId, viewer.allowedIds);
   if (!client) notFound();
 
   const [clientCases, clientNotes, clientDocs] = await Promise.all([

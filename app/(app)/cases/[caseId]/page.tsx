@@ -77,10 +77,11 @@ function Detail({ label, value, ltr }: { label: string; value?: string | null; l
 export default async function CaseCardPage({
   params,
 }: {
-  params: { caseId: string };
+  params: Promise<{ caseId: string }>;
 }) {
+  const { caseId } = await params;
   const viewer = await getViewer();
-  const caseRow = await getCase(params.caseId, viewer.allowedIds);
+  const caseRow = await getCase(caseId, viewer.allowedIds);
   if (!caseRow) notFound();
 
   const [history, hearings, deadlines, tasks, notes, documents, lawyers] =

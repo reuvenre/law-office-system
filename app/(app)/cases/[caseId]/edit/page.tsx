@@ -13,10 +13,11 @@ export const dynamic = "force-dynamic";
 export default async function EditCasePage({
   params,
 }: {
-  params: { caseId: string };
+  params: Promise<{ caseId: string }>;
 }) {
+  const { caseId } = await params;
   const viewer = await getViewer();
-  const caseRow = await getCase(params.caseId, viewer.allowedIds);
+  const caseRow = await getCase(caseId, viewer.allowedIds);
   if (!caseRow) notFound();
 
   const [clientRows, lawyers] = await Promise.all([
