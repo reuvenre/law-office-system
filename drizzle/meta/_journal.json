@@ -64,6 +64,13 @@
       "when": 1784964453560,
       "tag": "0008_invoice_issuance",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784966661633,
+      "tag": "0009_client_portal",
+      "breakpoints": true
     }
   ]
 }

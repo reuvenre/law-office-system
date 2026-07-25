@@ -1,4 +1,5 @@
 import { recordPayment } from "@/lib/erp/billing";
+import { normalizePayload } from "@/lib/payments/webhook";
 
 export const dynamic = "force-dynamic";
 
@@ -23,21 +24,23 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
 
-  const invoiceId = String(body.invoiceId ?? "");
-  const amount = Number(body.amount ?? 0);
-  if (!invoiceId || !amount) {
+  // Normalize the provider payload: Grow echoes our invoice id in cField1,
+  // Cardcom in ReturnValue; both also name the amount and transaction id
+  // differently. A generic { invoiceId, amount } body keeps working.
+  const norm = normalizePayload(body);
+  if (!norm.invoiceId || !norm.amount || norm.amount <= 0) {
     return Response.json({ ok: false, error: "missing invoiceId/amount" }, { status: 400 });
   }
 
   try {
-    const result = await recordPayment(invoiceId, {
+    const result = await recordPayment(norm.invoiceId, {
       method: (body.method as PaymentMethod) ?? "credit_card",
-      amount,
+      amount: norm.amount,
       reference: body.reference as string | undefined,
       // Always store a concrete provider so the (provider, provider_txn_id)
       // unique constraint actually dedupes retried webhooks.
-      provider: (body.provider as string | undefined) ?? "unknown",
-      providerTxnId: body.providerTxnId as string | undefined,
+      provider: norm.provider,
+      providerTxnId: norm.providerTxnId,
     });
     return Response.json({ ok: true, ...result });
   } catch (e) {

@@ -35,6 +35,7 @@ import { DeadlineEditDialog } from "@/components/deadlines/deadline-edit-dialog"
 import { TaskComposer } from "@/components/tasks/task-composer";
 import { TaskEditDialog } from "@/components/tasks/task-edit-dialog";
 import { DocumentUploader } from "@/components/documents/document-uploader";
+import { ShareToggle } from "@/components/documents/share-toggle";
 import { deleteDocumentAction } from "@/app/(app)/documents/actions";
 import { InlineDelete } from "@/components/shared/inline-delete";
 import { listActiveLawyers } from "@/lib/data/users";
@@ -408,6 +409,12 @@ export default async function CaseCardPage({
                             פתח בדרייב
                           </a>
                         )}
+                        <ShareToggle
+                          docId={doc.id}
+                          caseId={caseRow.id}
+                          clientId={caseRow.clientId}
+                          shared={doc.sharedWithClient}
+                        />
                         <InlineDelete
                           action={deleteDocumentAction.bind(null, doc.id, caseRow.id, caseRow.clientId)}
                         />

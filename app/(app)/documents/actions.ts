@@ -116,3 +116,33 @@ export async function deleteDocumentAction(
   if (caseId) revalidatePath(`/cases/${caseId}`);
   revalidatePath(`/clients/${clientId}`);
 }
+
+/**
+ * Share / unshare a document with the client portal. Documents are private to
+ * the firm by default; this is the only switch that exposes one to the client.
+ */
+export async function setDocumentSharedAction(
+  docId: string,
+  caseId: string | null,
+  clientId: string,
+  shared: boolean
+) {
+  const user = await getViewer();
+  if (!(await canAccessDocument(docId, user))) return;
+
+  await db
+    .update(documents)
+    .set({ sharedWithClient: shared })
+    .where(eq(documents.id, docId));
+
+  await logActivity({
+    actorId: user.id,
+    entityType: "document",
+    entityId: docId,
+    action: "update",
+    metadata: { kind: shared ? "shared_with_client" : "unshared_from_client" },
+  });
+
+  if (caseId) revalidatePath(`/cases/${caseId}`);
+  revalidatePath(`/clients/${clientId}`);
+}
