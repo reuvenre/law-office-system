@@ -6,6 +6,7 @@ import {
   Clock,
   CheckSquare,
   Receipt,
+  Sparkles,
   Search,
   Settings,
   type LucideIcon,
@@ -26,6 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/deadlines", label: "מועדים", icon: Clock },
   { href: "/tasks", label: "משימות", icon: CheckSquare },
   { href: "/billing", label: "חיוב וגבייה", icon: Receipt },
+  { href: "/ai", label: "עוזר AI", icon: Sparkles },
   { href: "/search", label: "חיפוש", icon: Search },
   { href: "/settings", label: "הגדרות", icon: Settings },
 ];

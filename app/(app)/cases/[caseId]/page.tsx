@@ -56,6 +56,8 @@ import {
   CreateProformaButton,
 } from "@/components/billing/case-billing-actions";
 import { deleteChargeAction } from "@/app/(app)/billing/actions";
+import { CaseSummary } from "@/components/ai/case-summary";
+import { isAIEnabled } from "@/lib/ai/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -225,6 +227,17 @@ export default async function CaseCardPage({
                 <StatusChanger action={changeStatus} current={caseRow.status as CaseStatus} />
               </CardContent>
             </Card>
+
+            {isAIEnabled() && (
+              <Card className="lg:col-span-3">
+                <CardHeader>
+                  <CardTitle className="text-base">סיכום AI</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CaseSummary caseId={caseRow.id} />
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
