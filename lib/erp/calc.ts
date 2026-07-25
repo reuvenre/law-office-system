@@ -118,3 +118,21 @@ export function retainerFiresToday(
 export function lastDayOfMonth(year: number, month1based: number): number {
   return new Date(Date.UTC(year, month1based, 0)).getUTCDate();
 }
+
+/**
+ * Israel Tax Authority "allocation number" (מספר הקצאה) — required on tax
+ * invoices above the annual threshold. It is a 9-digit numeric string.
+ * We validate shape only; the Authority validates authenticity.
+ */
+export function isValidAllocationNumber(value: string): boolean {
+  return /^\d{9}$/.test(value.trim());
+}
+
+/** Document types that represent an official (issued) tax document. */
+export const ISSUED_DOC_TYPES = ["tax_invoice", "invoice_receipt", "receipt"] as const;
+export type IssuedDocType = (typeof ISSUED_DOC_TYPES)[number];
+
+/** The firm_counters series name used for a document type's running number. */
+export function docCounterName(docType: string): string {
+  return docType; // one monotonic series per document type per firm
+}

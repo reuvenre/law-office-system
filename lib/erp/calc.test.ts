@@ -10,6 +10,8 @@ import {
   paymentStatus,
   retainerFiresToday,
   lastDayOfMonth,
+  isValidAllocationNumber,
+  docCounterName,
 } from "./calc";
 
 describe("round2", () => {
@@ -152,6 +154,29 @@ describe("lastDayOfMonth", () => {
     expect(lastDayOfMonth(2024, 2)).toBe(29); // leap year
     expect(lastDayOfMonth(2026, 4)).toBe(30);
     expect(lastDayOfMonth(2026, 12)).toBe(31);
+  });
+});
+
+describe("isValidAllocationNumber", () => {
+  it("accepts a 9-digit string", () => {
+    expect(isValidAllocationNumber("123456789")).toBe(true);
+  });
+  it("trims surrounding whitespace", () => {
+    expect(isValidAllocationNumber("  123456789 ")).toBe(true);
+  });
+  it("rejects wrong length or non-digits", () => {
+    expect(isValidAllocationNumber("12345678")).toBe(false); // 8 digits
+    expect(isValidAllocationNumber("1234567890")).toBe(false); // 10 digits
+    expect(isValidAllocationNumber("12345678a")).toBe(false);
+    expect(isValidAllocationNumber("")).toBe(false);
+  });
+});
+
+describe("docCounterName", () => {
+  it("gives each document type its own counter series", () => {
+    expect(docCounterName("tax_invoice")).toBe("tax_invoice");
+    expect(docCounterName("receipt")).toBe("receipt");
+    expect(docCounterName("proforma")).not.toBe(docCounterName("tax_invoice"));
   });
 });
 

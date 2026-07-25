@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { InvoiceStatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { RecordPaymentForm } from "@/components/billing/record-payment-form";
+import { IssueInvoiceDialog } from "@/components/billing/issue-invoice-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -55,6 +56,7 @@ export default async function InvoiceDetailPage({
   const status = inv.status as InvoiceStatus;
   const isCancelled = status === "cancelled";
   const isPaid = status === "paid";
+  const isProforma = inv.docType === "proforma";
 
   return (
     <div>
@@ -67,12 +69,15 @@ export default async function InvoiceDetailPage({
             <Button asChild variant="outline" size="sm">
               <Link href="/billing">חזרה לרשימה</Link>
             </Button>
+            {canManage && isProforma && !isCancelled && (
+              <IssueInvoiceDialog proformaId={inv.id} />
+            )}
             {canManage && !isCancelled && (
               <ConfirmDeleteButton
                 action={cancelInvoiceAction.bind(null, inv.id)}
-                triggerLabel="ביטול חשבונית"
-                title="ביטול חשבונית"
-                description="החשבונית תסומן כמבוטלת (לא נמחקת — כללי מס). הפעולה תתועד."
+                triggerLabel="ביטול מסמך"
+                title="ביטול מסמך"
+                description="המסמך יסומן כמבוטל (לא נמחק — כללי מס). הפעולה תתועד."
               />
             )}
           </div>
@@ -147,9 +152,31 @@ export default async function InvoiceDetailPage({
               <Detail label="תיק" value={inv.caseTitle} />
               <Detail label="הופק ע״י" value={inv.createdByName} />
               <Detail label="נוצר" value={formatDate(inv.createdAt)} ltr />
+              {inv.allocationNumber && (
+                <Detail label="מספר הקצאה" value={inv.allocationNumber} ltr />
+              )}
+              {inv.issuedAt && <Detail label="הופק ב" value={formatDate(inv.issuedAt)} ltr />}
               {inv.dueDate && <Detail label="לתשלום עד" value={formatDate(inv.dueDate)} ltr />}
               {inv.paidAt && <Detail label="שולם ב" value={formatDate(inv.paidAt)} ltr />}
             </dl>
+
+            {inv.relatedDocs.length > 0 && (
+              <div className="mt-4 border-t pt-4">
+                <p className="mb-2 text-xs text-muted-foreground">מסמכים מקושרים</p>
+                <ul className="space-y-1">
+                  {inv.relatedDocs.map((d) => (
+                    <li key={d.id}>
+                      <Link
+                        href={`/billing/${d.id}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {DOC_TYPES[d.docType as DocType]} #{d.docNumber}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

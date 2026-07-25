@@ -18,7 +18,9 @@ import {
   recordPayment,
   cancelInvoice,
   chargesFromTimeEntries,
+  issueTaxInvoice,
 } from "@/lib/erp/billing";
+import { isValidAllocationNumber } from "@/lib/erp/calc";
 
 export type BillingFormState = { error?: string; ok?: boolean } | undefined;
 
@@ -141,6 +143,40 @@ export async function recordPaymentAction(
   revalidatePath(`/billing/${invoiceId}`);
   revalidatePath("/billing");
   return { ok: true };
+}
+
+/** Issue an official tax document (חשבונית מס / מס-קבלה / קבלה) from a proforma. */
+export async function issueInvoiceAction(
+  proformaId: string,
+  _prev: BillingFormState,
+  formData: FormData
+): Promise<BillingFormState> {
+  const viewer = await requireFinanceRole();
+  if (!(await canAccessInvoice(proformaId, viewer.allowedIds))) {
+    return { error: "אין הרשאה לחשבונית זו" };
+  }
+  const docType = String(formData.get("docType") || "tax_invoice") as
+    | "tax_invoice"
+    | "invoice_receipt"
+    | "receipt";
+  const allocationRaw = String(formData.get("allocationNumber") || "").trim();
+  if (allocationRaw && !isValidAllocationNumber(allocationRaw)) {
+    return { error: "מספר הקצאה חייב להיות 9 ספרות" };
+  }
+
+  try {
+    const issued = await issueTaxInvoice(
+      proformaId,
+      { docType, allocationNumber: allocationRaw || undefined },
+      viewer.id
+    );
+    revalidatePath(`/billing/${proformaId}`);
+    revalidatePath(`/billing/${issued.id}`);
+    revalidatePath("/billing");
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "הפקת המסמך נכשלה" };
+  }
 }
 
 /** Cancel an invoice (never delete — tax rules). */

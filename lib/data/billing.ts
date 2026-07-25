@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   invoices,
@@ -54,13 +54,29 @@ export async function getInvoice(id: string, allowedIds: Ids) {
     .limit(1);
   if (!inv) return null;
 
-  const [lines, paid] = await Promise.all([
+  const [lines, paid, related] = await Promise.all([
     db.select().from(invoiceLines).where(eq(invoiceLines.invoiceId, id)),
     db
       .select()
       .from(payments)
       .where(eq(payments.invoiceId, id))
       .orderBy(desc(payments.receivedAt)),
+    // Documents linked to this one: those issued from it (children) and, if
+    // this is an issued document, its source proforma (parent).
+    db
+      .select({
+        id: invoices.id,
+        docType: invoices.docType,
+        docNumber: invoices.docNumber,
+        status: invoices.status,
+      })
+      .from(invoices)
+      .where(
+        or(
+          eq(invoices.sourceInvoiceId, id),
+          inv.i.sourceInvoiceId ? eq(invoices.id, inv.i.sourceInvoiceId) : undefined
+        )
+      ),
   ]);
 
   const totalPaid = paid.reduce((s, p) => s + Number(p.amount), 0);
@@ -71,6 +87,7 @@ export async function getInvoice(id: string, allowedIds: Ids) {
     createdByName: inv.createdByName,
     lines,
     payments: paid,
+    relatedDocs: related,
     totalPaid,
     balance: Number(inv.i.total) - totalPaid,
   };

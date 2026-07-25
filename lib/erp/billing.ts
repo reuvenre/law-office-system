@@ -23,6 +23,7 @@ import {
   feeFromEntries,
   buildRetainerCharges,
   paymentStatus as calcPaymentStatus,
+  docCounterName,
 } from "@/lib/erp/calc";
 
 export { VAT_RATE };
@@ -244,6 +245,85 @@ export async function recordPayment(
     .where(eq(invoices.id, invoiceId));
 
   return { status, totalPaid };
+}
+
+/**
+ * Issue an official tax document (חשבונית מס / חשבונית מס-קבלה / קבלה) from a
+ * proforma. Creates a NEW invoice row in its own number series — the proforma
+ * is preserved (Israeli bookkeeping keeps both). Lines are copied; the new
+ * document links back via source_invoice_id and stores the Tax Authority
+ * allocation number (מספר הקצאה) when supplied.
+ */
+export async function issueTaxInvoice(
+  proformaId: string,
+  opts: {
+    docType: "tax_invoice" | "invoice_receipt" | "receipt";
+    allocationNumber?: string;
+  },
+  createdBy: string | null,
+  firmId: string = DEFAULT_FIRM_ID
+) {
+  const [proforma] = await db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.id, proformaId), eq(invoices.firmId, firmId)))
+    .limit(1);
+  if (!proforma) throw new Error("חשבון עסקה לא נמצא");
+  if (proforma.docType !== "proforma") {
+    throw new Error("ניתן להפיק מסמך רשמי רק מחשבון עסקה");
+  }
+  if (proforma.status === "cancelled") {
+    throw new Error("לא ניתן להפיק מסמך מחשבון שבוטל");
+  }
+
+  const lines = await db
+    .select()
+    .from(invoiceLines)
+    .where(eq(invoiceLines.invoiceId, proformaId));
+
+  const docNumber = await nextCounter(firmId, docCounterName(opts.docType));
+  const newId = crypto.randomUUID();
+
+  const [inserted] = await db.batch([
+    db
+      .insert(invoices)
+      .values({
+        id: newId,
+        firmId,
+        clientId: proforma.clientId,
+        caseId: proforma.caseId,
+        docType: opts.docType,
+        docNumber,
+        subtotal: proforma.subtotal,
+        vatRate: proforma.vatRate,
+        vatAmount: proforma.vatAmount,
+        total: proforma.total,
+        currency: proforma.currency,
+        status: "sent",
+        allocationNumber: opts.allocationNumber ?? null,
+        sourceInvoiceId: proformaId,
+        issuedAt: new Date(),
+        createdBy,
+      })
+      .returning(),
+    db.insert(invoiceLines).values(
+      lines.map((l) => ({
+        invoiceId: newId,
+        chargeId: l.chargeId,
+        description: l.description,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        lineTotal: l.lineTotal,
+      }))
+    ),
+    // Mark the proforma as sent so it's clear it has been acted upon.
+    db
+      .update(invoices)
+      .set({ status: proforma.status === "draft" ? "sent" : proforma.status })
+      .where(eq(invoices.id, proformaId)),
+  ]);
+
+  return inserted[0];
 }
 
 /** Cancel an invoice — never delete (tax rules): set cancelled_at + status. */

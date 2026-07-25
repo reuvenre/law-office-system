@@ -606,6 +606,9 @@ export const invoices = pgTable(
     status: invoiceStatusEnum("status").notNull().default("draft"),
     allocationNumber: text("allocation_number"),
     externalDocId: text("external_doc_id"),
+    // Soft link: an issued tax invoice / receipt points back to the proforma
+    // it was generated from (Israeli practice keeps both documents).
+    sourceInvoiceId: uuid("source_invoice_id"),
     paymentLink: text("payment_link"),
     dueDate: date("due_date"),
     issuedAt: timestamp("issued_at", { withTimezone: true }),
