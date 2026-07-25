@@ -14,7 +14,7 @@ export default async function EditClientPage({
 }) {
   const { clientId } = await params;
   const viewer = await getViewer();
-  const client = await getClient(clientId, viewer.allowedIds);
+  const client = await getClient(clientId, viewer);
   if (!client) notFound();
 
   const action = updateClientAction.bind(null, client.id);

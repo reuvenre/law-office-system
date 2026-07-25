@@ -27,7 +27,7 @@ export default async function CasesPage({
 }) {
   const q = (await searchParams).q ?? "";
   const viewer = await getViewer();
-  const rows = await listCases(viewer.allowedIds, q);
+  const rows = await listCases(viewer, q);
 
   return (
     <div>

@@ -37,7 +37,7 @@ export default async function BillingPage() {
     );
   }
 
-  const rows = await listInvoices(viewer.allowedIds);
+  const rows = await listInvoices(viewer);
 
   return (
     <div>

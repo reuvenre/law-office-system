@@ -70,7 +70,7 @@ export async function updateClientAction(
   formData: FormData
 ): Promise<ClientFormState> {
   const user = await getViewer();
-  if (!(await canAccessClient(clientId, user.allowedIds))) {
+  if (!(await canAccessClient(clientId, user))) {
     return { error: "אין הרשאה ללקוח זה" };
   }
   const parsed = parseForm(formData);
@@ -104,7 +104,7 @@ export async function checkConflictsAction(name: string) {
 
 export async function deleteClientAction(clientId: string) {
   const user = await getViewer();
-  if (!(await canAccessClient(clientId, user.allowedIds))) return;
+  if (!(await canAccessClient(clientId, user))) return;
   await db.delete(clients).where(eq(clients.id, clientId));
   await logActivity({
     actorId: user.id,

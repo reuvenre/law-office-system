@@ -17,7 +17,7 @@ export default async function SearchPage({
 }) {
   const q = ((await searchParams).q ?? "").trim();
   const viewer = await getViewer();
-  const results = q ? await globalSearch(q, viewer.allowedIds) : null;
+  const results = q ? await globalSearch(q, viewer) : null;
 
   return (
     <div>

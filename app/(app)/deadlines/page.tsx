@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DeadlinesPage() {
   const viewer = await getViewer();
-  const rows = await listOpenDeadlines(viewer.allowedIds);
+  const rows = await listOpenDeadlines(viewer);
 
   return (
     <div>

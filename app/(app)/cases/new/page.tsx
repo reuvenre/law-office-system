@@ -16,7 +16,7 @@ export default async function NewCasePage({
   const { clientId: fixedClientId } = await searchParams;
   const viewer = await getViewer();
   const [clientRows, lawyers] = await Promise.all([
-    listClients(viewer.allowedIds),
+    listClients(viewer),
     listActiveLawyers(),
   ]);
   const clients = clientRows.map((c) => ({ id: c.id, fullName: c.fullName }));

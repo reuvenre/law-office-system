@@ -99,7 +99,7 @@ export default async function CaseCardPage({
 }) {
   const { caseId } = await params;
   const viewer = await getViewer();
-  const caseRow = await getCase(caseId, viewer.allowedIds);
+  const caseRow = await getCase(caseId, viewer);
   if (!caseRow) notFound();
 
   const [

@@ -26,10 +26,10 @@ export async function uploadDocumentAction(
 
   if (!file || file.size === 0) return { error: "לא נבחר קובץ" };
   if (!clientId) return { error: "חסר שיוך ללקוח" };
-  if (!(await canAccessClient(clientId, user.allowedIds))) {
+  if (!(await canAccessClient(clientId, user))) {
     return { error: "אין הרשאה ללקוח זה" };
   }
-  if (caseId && !(await canAccessCase(caseId, user.allowedIds))) {
+  if (caseId && !(await canAccessCase(caseId, user))) {
     return { error: "אין הרשאה לתיק זה" };
   }
 
@@ -90,7 +90,7 @@ export async function deleteDocumentAction(
   clientId: string
 ) {
   const user = await getViewer();
-  if (!(await canAccessDocument(docId, user.allowedIds))) return;
+  if (!(await canAccessDocument(docId, user))) return;
   const [doc] = await db
     .select({ storagePath: documents.storagePath })
     .from(documents)

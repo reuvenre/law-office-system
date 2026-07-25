@@ -10,9 +10,9 @@ import {
   cases,
   users,
 } from "@/lib/db/schema";
-import { invoiceScope, withScope } from "@/lib/auth/scope";
+import { invoiceScope, withScope, type ViewerScope } from "@/lib/auth/scope";
 
-type Ids = string[] | null;
+type Ids = ViewerScope;
 
 /** Invoices visible to the viewer (scoped by client), newest first. */
 export async function listInvoices(allowedIds: Ids) {

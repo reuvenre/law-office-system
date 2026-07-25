@@ -27,7 +27,7 @@ export async function addHearingAction(
   const caseId = String(formData.get("caseId") || "");
   const hearingAt = parseLocalDateTime(formData.get("hearingAt"));
   if (!caseId || !hearingAt) return { error: "תאריך/שעה ותיק הם שדות חובה" };
-  if (!(await canAccessCase(caseId, user.allowedIds))) {
+  if (!(await canAccessCase(caseId, user))) {
     return { error: "אין הרשאה לתיק זה" };
   }
 
@@ -60,7 +60,7 @@ export async function updateHearingAction(
   formData: FormData
 ): Promise<EventFormState> {
   const user = await getViewer();
-  if (!(await canAccessCase(caseId, user.allowedIds))) {
+  if (!(await canAccessCase(caseId, user))) {
     return { error: "אין הרשאה" };
   }
   const hearingAt = parseLocalDateTime(formData.get("hearingAt"));
@@ -93,7 +93,7 @@ export async function updateHearingStatusAction(
   formData: FormData
 ) {
   const user = await getViewer();
-  if (!(await canAccessCase(caseId, user.allowedIds))) return;
+  if (!(await canAccessCase(caseId, user))) return;
   const status = String(formData.get("status")) as HearingStatus;
   await db
     .update(hearings)
@@ -111,7 +111,7 @@ export async function updateHearingStatusAction(
 
 export async function deleteHearingAction(hearingId: string, caseId: string) {
   const user = await getViewer();
-  if (!(await canAccessCase(caseId, user.allowedIds))) return;
+  if (!(await canAccessCase(caseId, user))) return;
   await db
     .delete(hearings)
     .where(and(eq(hearings.id, hearingId), eq(hearings.caseId, caseId)));

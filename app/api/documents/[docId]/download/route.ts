@@ -18,7 +18,7 @@ export async function GET(
 
   const { docId } = await params;
   const viewer = await getViewer();
-  const doc = await getDocument(docId, viewer.allowedIds);
+  const doc = await getDocument(docId, viewer);
   if (!doc?.storagePath) {
     return new Response("Not found", { status: 404 });
   }

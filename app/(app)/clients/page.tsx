@@ -26,7 +26,7 @@ export default async function ClientsPage({
 }) {
   const q = (await searchParams).q ?? "";
   const viewer = await getViewer();
-  const rows = await listClients(viewer.allowedIds, q);
+  const rows = await listClients(viewer, q);
 
   return (
     <div>

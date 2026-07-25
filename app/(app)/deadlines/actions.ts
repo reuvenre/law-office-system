@@ -28,7 +28,7 @@ export async function addDeadlineAction(
   const title = (formData.get("title") as string)?.trim();
   const dueAt = parseLocalDateTime(formData.get("dueAt"));
   if (!caseId || !title || !dueAt) return { error: "כותרת, מועד ותיק הם חובה" };
-  if (!(await canAccessCase(caseId, user.allowedIds))) {
+  if (!(await canAccessCase(caseId, user))) {
     return { error: "אין הרשאה לתיק זה" };
   }
 
@@ -61,7 +61,7 @@ export async function updateDeadlineAction(
   formData: FormData
 ): Promise<EventFormState> {
   const user = await getViewer();
-  if (!(await canAccessCase(caseId, user.allowedIds))) {
+  if (!(await canAccessCase(caseId, user))) {
     return { error: "אין הרשאה" };
   }
   const title = (formData.get("title") as string)?.trim();
@@ -93,7 +93,7 @@ export async function toggleDeadlineAction(
   nextDone: boolean
 ) {
   const user = await getViewer();
-  if (!(await canAccessCase(caseId, user.allowedIds))) return;
+  if (!(await canAccessCase(caseId, user))) return;
   await db
     .update(deadlines)
     .set({ isDone: nextDone, doneBy: nextDone ? user.id : null })
@@ -110,7 +110,7 @@ export async function toggleDeadlineAction(
 
 export async function deleteDeadlineAction(deadlineId: string, caseId: string) {
   const user = await getViewer();
-  if (!(await canAccessCase(caseId, user.allowedIds))) return;
+  if (!(await canAccessCase(caseId, user))) return;
   await db
     .delete(deadlines)
     .where(and(eq(deadlines.id, deadlineId), eq(deadlines.caseId, caseId)));

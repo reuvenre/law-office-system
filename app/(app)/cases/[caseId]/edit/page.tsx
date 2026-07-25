@@ -17,11 +17,11 @@ export default async function EditCasePage({
 }) {
   const { caseId } = await params;
   const viewer = await getViewer();
-  const caseRow = await getCase(caseId, viewer.allowedIds);
+  const caseRow = await getCase(caseId, viewer);
   if (!caseRow) notFound();
 
   const [clientRows, lawyers] = await Promise.all([
-    listClients(viewer.allowedIds),
+    listClients(viewer),
     listActiveLawyers(),
   ]);
   const clients = clientRows.map((c) => ({ id: c.id, fullName: c.fullName }));

@@ -52,7 +52,7 @@ export default async function InvoiceDetailPage({
   const viewer = await getViewer();
   const firm = await getFirm(viewer.firmId);
   if (!isModuleEnabled(firm, "billing")) notFound();
-  const inv = await getInvoice(invoiceId, viewer.allowedIds);
+  const inv = await getInvoice(invoiceId, viewer);
   if (!inv) notFound();
 
   const canManage =

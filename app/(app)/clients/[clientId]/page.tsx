@@ -50,11 +50,11 @@ export default async function ClientCardPage({
 }) {
   const { clientId } = await params;
   const viewer = await getViewer();
-  const client = await getClient(clientId, viewer.allowedIds);
+  const client = await getClient(clientId, viewer);
   if (!client) notFound();
 
   const [clientCases, clientNotes, clientDocs] = await Promise.all([
-    getClientCases(client.id, viewer.allowedIds),
+    getClientCases(client.id, viewer),
     getClientNotes(client.id),
     getClientDocuments(client.id),
   ]);

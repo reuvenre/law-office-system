@@ -18,8 +18,8 @@ export async function addNoteAction(formData: FormData) {
   const clientId = (formData.get("clientId") as string) || null;
 
   if (!body) return;
-  if (caseId && !(await canAccessCase(caseId, user.allowedIds))) return;
-  if (clientId && !(await canAccessClient(clientId, user.allowedIds))) return;
+  if (caseId && !(await canAccessCase(caseId, user))) return;
+  if (clientId && !(await canAccessClient(clientId, user))) return;
 
   const [row] = await db
     .insert(notes)

@@ -41,7 +41,7 @@ export async function addTimeEntryAction(
   formData: FormData
 ): Promise<BillingFormState> {
   const viewer = await getViewer();
-  if (!(await canAccessCase(caseId, viewer.allowedIds))) {
+  if (!(await canAccessCase(caseId, viewer))) {
     return { error: "אין הרשאה לתיק זה" };
   }
 
@@ -120,7 +120,7 @@ export async function recordPaymentAction(
   formData: FormData
 ): Promise<BillingFormState> {
   const viewer = await requireBilling();
-  if (!(await canAccessInvoice(invoiceId, viewer.allowedIds))) {
+  if (!(await canAccessInvoice(invoiceId, viewer))) {
     return { error: "אין הרשאה לחשבונית זו" };
   }
   const amount = Number(formData.get("amount") || 0);
@@ -158,7 +158,7 @@ export async function issueInvoiceAction(
   formData: FormData
 ): Promise<BillingFormState> {
   const viewer = await requireBilling();
-  if (!(await canAccessInvoice(proformaId, viewer.allowedIds))) {
+  if (!(await canAccessInvoice(proformaId, viewer))) {
     return { error: "אין הרשאה לחשבונית זו" };
   }
   const docType = String(formData.get("docType") || "tax_invoice") as
@@ -188,7 +188,7 @@ export async function issueInvoiceAction(
 /** Cancel an invoice (never delete — tax rules). */
 export async function cancelInvoiceAction(invoiceId: string) {
   const viewer = await requireBilling();
-  if (!(await canAccessInvoice(invoiceId, viewer.allowedIds))) return;
+  if (!(await canAccessInvoice(invoiceId, viewer))) return;
   await cancelInvoice(invoiceId);
   revalidatePath(`/billing/${invoiceId}`);
   revalidatePath("/billing");

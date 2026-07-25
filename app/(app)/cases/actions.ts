@@ -41,7 +41,7 @@ export async function createCaseAction(
   }
 
   const data = parsed.data;
-  if (!(await canAccessClient(data.clientId, user.allowedIds))) {
+  if (!(await canAccessClient(data.clientId, user))) {
     return { error: "אין הרשאה ללקוח זה" };
   }
   const typeFields = collectTypeFields(
@@ -98,7 +98,7 @@ export async function updateCaseAction(
   formData: FormData
 ): Promise<CaseFormState> {
   const user = await getViewer();
-  if (!(await canAccessCase(caseId, user.allowedIds))) {
+  if (!(await canAccessCase(caseId, user))) {
     return { error: "אין הרשאה לתיק זה" };
   }
   const parsed = parseBase(formData);
@@ -147,7 +147,7 @@ export async function updateCaseAction(
  */
 export async function changeCaseStatusAction(caseId: string, formData: FormData) {
   const user = await getViewer();
-  if (!(await canAccessCase(caseId, user.allowedIds))) return;
+  if (!(await canAccessCase(caseId, user))) return;
   const toStatus = String(formData.get("status"));
   const note = (formData.get("note") as string)?.trim() || null;
 
@@ -189,7 +189,7 @@ export async function changeCaseStatusAction(caseId: string, formData: FormData)
 
 export async function deleteCaseAction(caseId: string) {
   const user = await getViewer();
-  if (!(await canAccessCase(caseId, user.allowedIds))) return;
+  if (!(await canAccessCase(caseId, user))) return;
   await db.delete(cases).where(eq(cases.id, caseId));
   await logActivity({
     actorId: user.id,

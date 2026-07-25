@@ -1,9 +1,9 @@
 import { db } from "@/lib/db";
 import { documents } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
-import { documentScope, withScope } from "@/lib/auth/scope";
+import { documentScope, withScope, type ViewerScope } from "@/lib/auth/scope";
 
-type Ids = string[] | null;
+type Ids = ViewerScope;
 
 export async function getDocument(id: string, allowedIds: Ids) {
   const where = withScope(eq(documents.id, id), documentScope(allowedIds));
