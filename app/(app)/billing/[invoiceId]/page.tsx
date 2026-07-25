@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getInvoice } from "@/lib/data/billing";
 import { getViewer } from "@/lib/auth/viewer";
+import { getFirm } from "@/lib/data/firm";
+import { isModuleEnabled } from "@/lib/plans";
 import { cancelInvoiceAction } from "@/app/(app)/billing/actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -48,6 +50,8 @@ export default async function InvoiceDetailPage({
 }) {
   const { invoiceId } = await params;
   const viewer = await getViewer();
+  const firm = await getFirm(viewer.firmId);
+  if (!isModuleEnabled(firm, "billing")) notFound();
   const inv = await getInvoice(invoiceId, viewer.allowedIds);
   if (!inv) notFound();
 

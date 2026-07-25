@@ -5,13 +5,22 @@ import { and, eq, ne } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { users, appSettings } from "@/lib/db/schema";
+import { users, appSettings, firms } from "@/lib/db/schema";
 import { getViewer, requireAdmin } from "@/lib/auth/viewer";
 import { getSettings } from "@/lib/data/settings";
+import { PLANS, MODULES, type ModuleKey } from "@/lib/plans";
 
 export type UserFormState = { error?: string } | undefined;
 
-type Role = "lawyer" | "assistant";
+const ROLE_VALUES = [
+  "lawyer",
+  "assistant",
+  "admin",
+  "secretary",
+  "accountant",
+  "intern",
+] as const;
+type Role = (typeof ROLE_VALUES)[number];
 type Scope = "all" | "own" | "custom";
 
 /**
@@ -90,7 +99,7 @@ export async function setUserScopeAction(userId: string, formData: FormData) {
 const addUserSchema = z.object({
   fullName: z.string().trim().min(1),
   email: z.string().trim().email(),
-  role: z.enum(["lawyer", "assistant"]),
+  role: z.enum(ROLE_VALUES),
   password: z.string().min(8),
 });
 
@@ -120,6 +129,20 @@ export async function addUserAction(
     .limit(1);
   if (existing[0]) return { error: "אימייל כבר קיים במערכת" };
 
+  // Enforce the firm's plan seat cap.
+  const viewer = await getViewer();
+  const { getFirm, countActiveSeats } = await import("@/lib/data/firm");
+  const { seatLimitReached, planFor } = await import("@/lib/plans");
+  const [firm, seats] = await Promise.all([
+    getFirm(viewer.firmId),
+    countActiveSeats(viewer.firmId),
+  ]);
+  if (seatLimitReached(firm.licensePlan, seats)) {
+    return {
+      error: `הגעתם למכסת המשתמשים בתוכנית ${planFor(firm.licensePlan).label}. לשדרוג פנו ל-win-solutions.co.il`,
+    };
+  }
+
   await db.insert(users).values({
     fullName: parsed.data.fullName,
     email,
@@ -137,6 +160,27 @@ function parseDays(raw: unknown): number[] {
     .split(",")
     .map((s) => parseInt(s.trim(), 10))
     .filter((n) => Number.isFinite(n) && n >= 0);
+}
+
+/** Update the firm's plan + module toggles (admin only). */
+export async function updateFirmPlanAction(formData: FormData) {
+  const viewer = await requireAdmin();
+  const licensePlan = String(formData.get("licensePlan") || "basic");
+  if (!PLANS[licensePlan]) return;
+
+  const modules = Object.fromEntries(
+    (Object.keys(MODULES) as ModuleKey[]).map((k) => [
+      k,
+      formData.get(`module_${k}`) === "on",
+    ])
+  );
+
+  await db
+    .update(firms)
+    .set({ licensePlan, modules })
+    .where(eq(firms.id, viewer.firmId));
+  revalidatePath("/settings");
+  revalidatePath("/billing");
 }
 
 /** Update reminder templates / windows / channel (admin only). */

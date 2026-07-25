@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { listInvoices } from "@/lib/data/billing";
 import { getViewer } from "@/lib/auth/viewer";
+import { getFirm } from "@/lib/data/firm";
+import { isModuleEnabled } from "@/lib/plans";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ModuleLocked } from "@/components/billing/module-locked";
 import { InvoiceStatusBadge } from "@/components/shared/status-badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,6 +23,20 @@ export const dynamic = "force-dynamic";
 
 export default async function BillingPage() {
   const viewer = await getViewer();
+  const firm = await getFirm(viewer.firmId);
+
+  if (!isModuleEnabled(firm, "billing")) {
+    return (
+      <div>
+        <PageHeader title="חיוב וגבייה" description="מודול החיוב אינו כלול בתוכנית" />
+        <ModuleLocked
+          title="מודול החיוב אינו פעיל"
+          description="מודול החיוב והגבייה (חשבוניות, תשלומים, רישום שעות וריטיינרים) זמין בתוכנית מקצועי ומעלה."
+        />
+      </div>
+    );
+  }
+
   const rows = await listInvoices(viewer.allowedIds);
 
   return (

@@ -10,7 +10,7 @@ import {
   invoices,
   DEFAULT_FIRM_ID,
 } from "@/lib/db/schema";
-import { getViewer, requireFinanceRole } from "@/lib/auth/viewer";
+import { getViewer, requireFinanceRole, requireModule } from "@/lib/auth/viewer";
 import { canAccessCase, canAccessInvoice } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
 import {
@@ -25,6 +25,12 @@ import { isValidAllocationNumber } from "@/lib/erp/calc";
 export type BillingFormState = { error?: string; ok?: boolean } | undefined;
 
 type PaymentMethod = "bank_transfer" | "credit_card" | "bit" | "check" | "cash";
+
+/** Finance mutation gate: correct role AND the billing module licensed. */
+async function requireBilling() {
+  await requireModule("billing");
+  return requireFinanceRole();
+}
 
 /* -------------------- time entries (case-access users) -------------------- */
 
@@ -83,7 +89,7 @@ export async function addTimeEntryAction(
 
 /** Convert a case's un-invoiced billable time into a single fee charge. */
 export async function createChargesFromTimeAction(caseId: string) {
-  const viewer = await requireFinanceRole();
+  const viewer = await requireBilling();
   const charge = await chargesFromTimeEntries(DEFAULT_FIRM_ID, caseId, viewer.id);
   revalidatePath(`/cases/${caseId}`);
   return charge ? { ok: true } : { error: "אין שעות לחיוב" };
@@ -95,7 +101,7 @@ export async function createProformaAction(
   chargeIds: string[],
   caseId?: string
 ) {
-  const viewer = await requireFinanceRole();
+  const viewer = await requireBilling();
   if (!chargeIds.length) return { error: "לא נבחרו חיובים" };
   try {
     const invoice = await createProforma(clientId, chargeIds, viewer.id);
@@ -113,7 +119,7 @@ export async function recordPaymentAction(
   _prev: BillingFormState,
   formData: FormData
 ): Promise<BillingFormState> {
-  const viewer = await requireFinanceRole();
+  const viewer = await requireBilling();
   if (!(await canAccessInvoice(invoiceId, viewer.allowedIds))) {
     return { error: "אין הרשאה לחשבונית זו" };
   }
@@ -151,7 +157,7 @@ export async function issueInvoiceAction(
   _prev: BillingFormState,
   formData: FormData
 ): Promise<BillingFormState> {
-  const viewer = await requireFinanceRole();
+  const viewer = await requireBilling();
   if (!(await canAccessInvoice(proformaId, viewer.allowedIds))) {
     return { error: "אין הרשאה לחשבונית זו" };
   }
@@ -181,7 +187,7 @@ export async function issueInvoiceAction(
 
 /** Cancel an invoice (never delete — tax rules). */
 export async function cancelInvoiceAction(invoiceId: string) {
-  const viewer = await requireFinanceRole();
+  const viewer = await requireBilling();
   if (!(await canAccessInvoice(invoiceId, viewer.allowedIds))) return;
   await cancelInvoice(invoiceId);
   revalidatePath(`/billing/${invoiceId}`);
@@ -190,7 +196,7 @@ export async function cancelInvoiceAction(invoiceId: string) {
 
 /** Delete an un-invoiced pending charge. */
 export async function deleteChargeAction(chargeId: string, caseId?: string) {
-  await requireFinanceRole();
+  await requireBilling();
   const [row] = await db
     .select({ status: charges.status })
     .from(charges)
