@@ -1,3 +1,5 @@
+import { PoweredBy } from "@/components/shared/powered-by";
+
 export const metadata = {
   title: "אזור אישי ללקוח",
   // The portal is private, per-client content — keep it out of search engines.
@@ -19,16 +21,8 @@ export default function PortalLayout({
         </div>
       </header>
       <main className="mx-auto max-w-3xl p-4">{children}</main>
-      <footer className="pb-8 text-center text-xs text-muted-foreground">
-        מבית{" "}
-        <a
-          href="https://win-solutions.co.il"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary hover:underline"
-        >
-          win-solutions.co.il
-        </a>
+      <footer className="pb-8 text-center">
+        <PoweredBy />
       </footer>
     </div>
   );

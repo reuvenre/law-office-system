@@ -12,6 +12,7 @@ import {
   lastDayOfMonth,
   isValidAllocationNumber,
   docCounterName,
+  isPayableInvoiceStatus,
 } from "./calc";
 
 describe("round2", () => {
@@ -145,6 +146,21 @@ describe("paymentStatus", () => {
   });
   it("is partial when under the total", () => {
     expect(paymentStatus(500, 1180)).toBe("partially_paid");
+  });
+});
+
+describe("isPayableInvoiceStatus", () => {
+  it("allows paying an issued or partially-paid document", () => {
+    expect(isPayableInvoiceStatus("sent")).toBe(true);
+    expect(isPayableInvoiceStatus("partially_paid")).toBe(true);
+  });
+  it("refuses drafts, settled and cancelled documents", () => {
+    expect(isPayableInvoiceStatus("draft")).toBe(false);
+    expect(isPayableInvoiceStatus("paid")).toBe(false);
+    expect(isPayableInvoiceStatus("cancelled")).toBe(false);
+  });
+  it("refuses an unknown status rather than defaulting to payable", () => {
+    expect(isPayableInvoiceStatus("overdue")).toBe(false);
   });
 });
 

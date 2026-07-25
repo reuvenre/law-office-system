@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clientPortalTokens, clients, DEFAULT_FIRM_ID } from "@/lib/db/schema";
@@ -16,7 +16,7 @@ import { clientPortalTokens, clients, DEFAULT_FIRM_ID } from "@/lib/db/schema";
  */
 
 export const PORTAL_COOKIE = "portal_token";
-const DEFAULT_TTL_DAYS = 30;
+export const DEFAULT_TTL_DAYS = 30;
 
 function hashToken(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
@@ -49,17 +49,18 @@ export type PortalSession = {
   firmId: string;
   clientName: string;
   tokenId: string;
+  expiresAt: Date;
 };
 
 /**
  * Resolve a raw token to a portal session. Returns null for unknown, expired,
- * or revoked tokens. The comparison is a hash lookup plus a constant-time
- * confirmation, so a partial-match timing signal can't be mined.
+ * or revoked tokens. Lookup is an equality match on the hash (unique index) —
+ * the secret itself is never compared, so there is no timing signal to mine.
  */
 export async function verifyPortalToken(
   raw: string | undefined | null
 ): Promise<PortalSession | null> {
-  if (!raw || typeof raw !== "string" || raw.length < 20) return null;
+  if (!raw || raw.length < 20) return null;
   const hash = hashToken(raw);
 
   const rows = await db
@@ -67,7 +68,7 @@ export async function verifyPortalToken(
       id: clientPortalTokens.id,
       clientId: clientPortalTokens.clientId,
       firmId: clientPortalTokens.firmId,
-      tokenHash: clientPortalTokens.tokenHash,
+      expiresAt: clientPortalTokens.expiresAt,
       clientName: clients.fullName,
     })
     .from(clientPortalTokens)
@@ -84,16 +85,12 @@ export async function verifyPortalToken(
   const row = rows[0];
   if (!row) return null;
 
-  // Defense in depth: confirm the stored hash matches in constant time.
-  const a = Buffer.from(row.tokenHash, "utf8");
-  const b = Buffer.from(hash, "utf8");
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-
   return {
     clientId: row.clientId,
     firmId: row.firmId,
     clientName: row.clientName,
     tokenId: row.id,
+    expiresAt: row.expiresAt,
   };
 }
 
@@ -107,14 +104,6 @@ export async function touchPortalToken(tokenId: string): Promise<void> {
   } catch (e) {
     console.error("touchPortalToken failed", e);
   }
-}
-
-/** Revoke a single token. */
-export async function revokePortalToken(tokenId: string): Promise<void> {
-  await db
-    .update(clientPortalTokens)
-    .set({ revokedAt: new Date() })
-    .where(eq(clientPortalTokens.id, tokenId));
 }
 
 /** Revoke every active token for a client. */

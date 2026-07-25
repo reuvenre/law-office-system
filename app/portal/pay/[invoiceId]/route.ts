@@ -1,18 +1,23 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { db } from "@/lib/db";
 import { invoices } from "@/lib/db/schema";
-import { getPortalSession } from "@/lib/portal/session";
+import { withPortalSession } from "@/lib/portal/session";
 import { portalPayableInvoice } from "@/lib/portal/data";
 import { getPaymentProvider } from "@/lib/payments/providers";
+import { appBaseUrl } from "@/lib/url";
 import { DOC_TYPES, type DocType } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
-function appBaseUrl(): string {
-  return (
-    process.env.NEXTAUTH_URL || process.env.APP_URL || "http://localhost:3000"
-  );
+type Ctx = { params: Promise<{ invoiceId: string }> };
+
+function textError(message: string, status: number) {
+  return new Response(message, {
+    status,
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 }
 
 /**
@@ -21,15 +26,7 @@ function appBaseUrl(): string {
  * amount is always taken from our invoice row — never from the request — so a
  * client cannot influence what they are charged.
  */
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ invoiceId: string }> }
-) {
-  const session = await getPortalSession();
-  if (!session) {
-    return NextResponse.redirect(new URL("/portal/expired", appBaseUrl()), 302);
-  }
-
+export const GET = withPortalSession<Ctx>(async (session, _req, { params }) => {
   const { invoiceId } = await params;
   const invoice = await portalPayableInvoice(
     invoiceId,
@@ -47,10 +44,7 @@ export async function GET(
 
   const provider = getPaymentProvider();
   if (!provider) {
-    return new Response("התשלום המקוון אינו זמין כרגע. אנא פנו למשרד.", {
-      status: 503,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
+    return textError("התשלום המקוון אינו זמין כרגע. אנא פנו למשרד.", 503);
   }
 
   const result = await provider.createPaymentLink({
@@ -63,16 +57,16 @@ export async function GET(
 
   if (!result.ok) {
     console.error("portal payment link failed", result.error);
-    return new Response("יצירת קישור התשלום נכשלה. אנא פנו למשרד.", {
-      status: 502,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
+    return textError("יצירת קישור התשלום נכשלה. אנא פנו למשרד.", 502);
   }
 
-  await db
-    .update(invoices)
-    .set({ paymentLink: result.url })
-    .where(eq(invoices.id, invoice.id));
+  // Persist after responding — the payer shouldn't wait on our bookkeeping.
+  after(async () => {
+    await db
+      .update(invoices)
+      .set({ paymentLink: result.url })
+      .where(eq(invoices.id, invoice.id));
+  });
 
   return NextResponse.redirect(result.url, 302);
-}
+});

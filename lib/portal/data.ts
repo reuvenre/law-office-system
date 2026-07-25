@@ -1,6 +1,18 @@
 import { and, desc, eq, gte, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { cases, documents, invoices, hearings } from "@/lib/db/schema";
+import { isPayableInvoiceStatus } from "@/lib/erp/calc";
+import { getFirm } from "@/lib/data/firm";
+import { isModuleEnabled } from "@/lib/plans";
+
+/**
+ * The portal must respect the firm's licensing exactly like the staff UI: if
+ * the billing module is off, clients can neither see nor pay invoices. Gating
+ * here (rather than in each page) means any future portal surface inherits it.
+ */
+async function billingEnabled(firmId: string): Promise<boolean> {
+  return isModuleEnabled(await getFirm(firmId), "billing");
+}
 
 /**
  * Read models for the client portal. Every query is filtered by BOTH the
@@ -50,6 +62,7 @@ export async function portalHearings(clientId: string, firmId: string) {
 
 /** Issued billing documents — drafts are never shown to the client. */
 export async function portalInvoices(clientId: string, firmId: string) {
+  if (!(await billingEnabled(firmId))) return [];
   return db
     .select({
       id: invoices.id,
@@ -102,7 +115,11 @@ export async function portalDocumentForDownload(
   firmId: string
 ) {
   const rows = await db
-    .select()
+    .select({
+      storagePath: documents.storagePath,
+      mimeType: documents.mimeType,
+      fileName: documents.fileName,
+    })
     .from(documents)
     .where(
       and(
@@ -122,8 +139,16 @@ export async function portalPayableInvoice(
   clientId: string,
   firmId: string
 ) {
+  if (!(await billingEnabled(firmId))) return null;
   const rows = await db
-    .select()
+    .select({
+      id: invoices.id,
+      docType: invoices.docType,
+      docNumber: invoices.docNumber,
+      status: invoices.status,
+      total: invoices.total,
+      paymentLink: invoices.paymentLink,
+    })
     .from(invoices)
     .where(
       and(
@@ -134,9 +159,6 @@ export async function portalPayableInvoice(
     )
     .limit(1);
   const inv = rows[0];
-  if (!inv) return null;
-  if (inv.status === "draft" || inv.status === "cancelled" || inv.status === "paid") {
-    return null;
-  }
+  if (!inv || !isPayableInvoiceStatus(inv.status)) return null;
   return inv;
 }

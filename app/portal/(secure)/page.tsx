@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { CaseStatusBadge, InvoiceStatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDate, formatDateTime, formatCurrency } from "@/lib/format";
+import { isPaymentsEnabled } from "@/lib/payments/providers";
+import { isPayableInvoiceStatus } from "@/lib/erp/calc";
 import {
   PRACTICE_AREAS,
   DOC_TYPES,
@@ -32,9 +34,9 @@ export default async function PortalPage() {
     portalDocuments(session.clientId, session.firmId),
   ]);
 
-  const openInvoices = invoices.filter(
-    (i) => i.status === "sent" || i.status === "partially_paid"
-  );
+  // No configured provider means no working pay button — don't offer one.
+  const canPayOnline = isPaymentsEnabled();
+  const hasPayable = invoices.some((i) => isPayableInvoiceStatus(i.status));
 
   return (
     <div className="space-y-4">
@@ -111,8 +113,7 @@ export default async function PortalPage() {
           ) : (
             <ul className="divide-y">
               {invoices.map((inv) => {
-                const payable =
-                  inv.status === "sent" || inv.status === "partially_paid";
+                const payable = canPayOnline && isPayableInvoiceStatus(inv.status);
                 return (
                   <li
                     key={inv.id}
@@ -140,7 +141,7 @@ export default async function PortalPage() {
               })}
             </ul>
           )}
-          {openInvoices.length > 0 && (
+          {canPayOnline && hasPayable && (
             <p className="mt-3 text-xs text-muted-foreground">
               התשלום מתבצע בעמוד מאובטח של חברת הסליקה.
             </p>

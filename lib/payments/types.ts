@@ -25,14 +25,9 @@ export type PaymentLinkResult =
   | { ok: false; error: string };
 
 export interface PaymentProvider {
-  /** Stable provider key, stored on the payment row. */
+  /** Stable provider key — selects the provider via PAYMENT_PROVIDER. */
   readonly key: string;
   /** True when the provider's credentials are configured. */
   isConfigured(): boolean;
   createPaymentLink(req: PaymentLinkRequest): Promise<PaymentLinkResult>;
-}
-
-/** Two-decimal rounding for money crossing a provider boundary. */
-export function toAgorot(amount: number): number {
-  return Math.round(amount * 100);
 }

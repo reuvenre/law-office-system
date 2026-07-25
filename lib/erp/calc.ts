@@ -93,6 +93,15 @@ export function buildRetainerCharges(
   return { totalHours, overageHours, charges };
 }
 
+/**
+ * Whether an invoice can still be paid. Single source of truth — the portal UI,
+ * the pay route, and the read model all consult this, so a new invoice status
+ * can't make the button and the route disagree.
+ */
+export function isPayableInvoiceStatus(status: string): boolean {
+  return status === "sent" || status === "partially_paid";
+}
+
 /** Invoice status after payments: fully paid vs partial. */
 export function paymentStatus(
   totalPaid: number,

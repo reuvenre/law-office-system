@@ -9,6 +9,7 @@ import {
 } from "@/app/(app)/clients/portal-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatDate } from "@/lib/format";
 
 /** Issue / revoke client-portal magic links (staff side). */
 export function PortalLinkManager({ clientId }: { clientId: string }) {
@@ -31,12 +32,12 @@ export function PortalLinkManager({ clientId }: { clientId: string }) {
           onClick={() =>
             start(async () => {
               const res = await createPortalLinkAction(clientId);
-              if (res?.ok) {
+              if (res.ok) {
                 setUrl(res.url);
                 setExpiresAt(res.expiresAt);
                 toast.success("נוצר קישור חדש");
               } else {
-                toast.error(res?.error ?? "יצירת הקישור נכשלה");
+                toast.error(res.error);
               }
             })
           }
@@ -80,12 +81,8 @@ export function PortalLinkManager({ clientId }: { clientId: string }) {
           </div>
           {expiresAt && (
             <p className="text-xs text-muted-foreground">
-              בתוקף עד{" "}
-              {new Intl.DateTimeFormat("he-IL", {
-                dateStyle: "short",
-                timeZone: "Asia/Jerusalem",
-              }).format(new Date(expiresAt))}
-              . הקישור לא יוצג שוב — שמרו או שלחו אותו כעת.
+              בתוקף עד {formatDate(expiresAt)}. הקישור לא יוצג שוב — שמרו או שלחו
+              אותו כעת.
             </p>
           )}
         </div>

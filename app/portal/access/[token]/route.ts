@@ -1,10 +1,7 @@
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
-import {
-  PORTAL_COOKIE,
-  verifyPortalToken,
-  touchPortalToken,
-} from "@/lib/portal/tokens";
+import { NextResponse, after } from "next/server";
+import { PORTAL_COOKIE, verifyPortalToken, touchPortalToken } from "@/lib/portal/tokens";
+import { appBaseUrl } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +18,7 @@ export async function GET(
   const { token } = await params;
   const session = await verifyPortalToken(token);
 
-  const target = new URL(
-    session ? "/portal" : "/portal/expired",
-    process.env.NEXTAUTH_URL || process.env.APP_URL || "http://localhost:3000"
-  );
+  const target = new URL(session ? "/portal" : "/portal/expired", appBaseUrl());
   const res = NextResponse.redirect(target, { status: 302 });
   res.headers.set("Referrer-Policy", "no-referrer");
   res.headers.set("Cache-Control", "no-store");
@@ -37,9 +31,11 @@ export async function GET(
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/portal",
-    maxAge: 60 * 60 * 24 * 30,
+    // Expire the cookie with the token it carries, so the two never diverge.
+    expires: session.expiresAt,
   });
 
-  await touchPortalToken(session.tokenId);
+  // Bookkeeping only — don't hold up the redirect for it.
+  after(() => touchPortalToken(session.tokenId));
   return res;
 }

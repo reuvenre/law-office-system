@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   // Cardcom in ReturnValue; both also name the amount and transaction id
   // differently. A generic { invoiceId, amount } body keeps working.
   const norm = normalizePayload(body);
-  if (!norm.invoiceId || !norm.amount || norm.amount <= 0) {
+  if (!norm.invoiceId || norm.amount <= 0) {
     return Response.json({ ok: false, error: "missing invoiceId/amount" }, { status: 400 });
   }
 

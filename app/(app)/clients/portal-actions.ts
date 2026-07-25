@@ -5,15 +5,11 @@ import { getViewer } from "@/lib/auth/viewer";
 import { canAccessClient } from "@/lib/auth/scope";
 import { createPortalToken, revokeAllForClient } from "@/lib/portal/tokens";
 import { logActivity } from "@/lib/activity";
+import { appBaseUrl } from "@/lib/url";
 
 export type PortalLinkState =
   | { ok: true; url: string; expiresAt: string }
-  | { ok: false; error: string }
-  | undefined;
-
-function appBaseUrl(): string {
-  return process.env.NEXTAUTH_URL || process.env.APP_URL || "http://localhost:3000";
-}
+  | { ok: false; error: string };
 
 /**
  * Issue a client-portal magic link. The raw token is returned to the staff
