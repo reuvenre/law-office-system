@@ -11,11 +11,37 @@ export type NormalizedPayment = {
   providerTxnId?: string;
 };
 
-const str = (v: unknown): string | undefined => {
+export const str = (v: unknown): string | undefined => {
   if (typeof v === "string" && v.trim()) return v.trim();
   if (typeof v === "number" && Number.isFinite(v)) return String(v);
   return undefined;
 };
+
+/**
+ * The transaction reference a Grow/Meshulam callback carries. This is all we
+ * take from the body — everything else comes from their API. Meshulam sends
+ * these under a few spellings depending on the integration.
+ */
+export function growWebhookRef(
+  body: Record<string, unknown>
+): { processId: string; processToken: string } | null {
+  const processId = str(body.processId) ?? str(body.processID) ?? str(body.process_id);
+  const processToken =
+    str(body.processToken) ?? str(body.processtoken) ?? str(body.process_token);
+  if (!processId || !processToken) return null;
+  return { processId, processToken };
+}
+
+/** The LowProfile id a Cardcom callback carries. */
+export function cardcomWebhookRef(body: Record<string, unknown>): string | null {
+  return (
+    str(body.LowProfileId) ??
+    str(body.lowProfileId) ??
+    str(body.LowProfileCode) ??
+    str(body.LowProfileDealId) ??
+    null
+  );
+}
 
 /**
  * Map a provider-specific webhook body onto our payment shape.

@@ -1,5 +1,41 @@
 import { describe, it, expect } from "vitest";
-import { normalizePayload } from "./webhook";
+import { normalizePayload, growWebhookRef, cardcomWebhookRef } from "./webhook";
+
+describe("growWebhookRef", () => {
+  it("extracts the process reference", () => {
+    expect(growWebhookRef({ processId: "p1", processToken: "t1" })).toEqual({
+      processId: "p1",
+      processToken: "t1",
+    });
+  });
+  it("accepts the alternate spellings Meshulam uses", () => {
+    expect(growWebhookRef({ processID: "p2", process_token: "t2" })).toEqual({
+      processId: "p2",
+      processToken: "t2",
+    });
+  });
+  it("returns null when either half is missing — nothing to confirm against", () => {
+    expect(growWebhookRef({ processId: "p" })).toBeNull();
+    expect(growWebhookRef({ processToken: "t" })).toBeNull();
+    expect(growWebhookRef({})).toBeNull();
+  });
+  it("ignores an attacker-supplied amount — only the reference is taken", () => {
+    const ref = growWebhookRef({ processId: "p", processToken: "t", sum: 99999 });
+    expect(ref).toEqual({ processId: "p", processToken: "t" });
+    expect(ref).not.toHaveProperty("sum");
+  });
+});
+
+describe("cardcomWebhookRef", () => {
+  it("extracts the LowProfile id under its known spellings", () => {
+    expect(cardcomWebhookRef({ LowProfileId: "lp1" })).toBe("lp1");
+    expect(cardcomWebhookRef({ lowProfileId: "lp2" })).toBe("lp2");
+    expect(cardcomWebhookRef({ LowProfileDealId: "lp3" })).toBe("lp3");
+  });
+  it("returns null when absent", () => {
+    expect(cardcomWebhookRef({ ReturnValue: "inv-1", Amount: 500 })).toBeNull();
+  });
+});
 
 describe("normalizePayload", () => {
   it("passes a generic body through unchanged", () => {
