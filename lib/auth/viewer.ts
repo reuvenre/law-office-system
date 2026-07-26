@@ -10,6 +10,8 @@ export type Viewer = {
   email: string;
   role: string;
   isAdmin: boolean;
+  /** The firm this viewer belongs to (tenant boundary). */
+  firmId: string;
   /** Lawyer ids whose data this viewer may see, or null = the whole firm. */
   allowedIds: string[] | null;
 };
@@ -46,6 +48,7 @@ export async function getViewer(): Promise<Viewer> {
     email: u.email,
     role: u.role,
     isAdmin: u.isAdmin,
+    firmId: u.firmId,
     allowedIds,
   };
 }
@@ -63,5 +66,19 @@ export async function requireFinanceRole(): Promise<Viewer> {
   if (!v.isAdmin && v.role !== "admin" && v.role !== "accountant") {
     redirect("/dashboard");
   }
+  return v;
+}
+
+/**
+ * Gate a page/action behind a licensed module. Fail-closed: if the firm's plan
+ * (or its explicit module map) doesn't include the module, redirect away.
+ * Import lazily to avoid a cycle (data/firm → db → schema).
+ */
+export async function requireModule(moduleKey: import("@/lib/plans").ModuleKey): Promise<Viewer> {
+  const v = await getViewer();
+  const { getFirm } = await import("@/lib/data/firm");
+  const { isModuleEnabled } = await import("@/lib/plans");
+  const firm = await getFirm(v.firmId);
+  if (!isModuleEnabled(firm, moduleKey)) redirect("/dashboard");
   return v;
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "payments" ADD CONSTRAINT "payments_provider_provider_txn_id_unique" UNIQUE("provider","provider_txn_id");

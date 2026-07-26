@@ -34,14 +34,19 @@ Practice-management system for a small Israeli law office. Hebrew, full RTL, mob
 
 ## Status
 
-Phases 0–6 implemented (auth, clients, cases, hearings/deadlines/tasks, documents,
-dashboard, notes/audit, activity feed, global search). Phases 7–8 (reminders, Drive
-sync, 2FA, conflict-of-interest UI, polish) pending. See the build plan for details.
+Phases 0–8 implemented: auth (Google + credentials), clients, cases,
+hearings (incl. shared monthly office calendar), deadlines, tasks, documents,
+dashboard, notes/audit, activity feed, global search, reminders (WhatsApp/SMS/email
+via Vercel Cron), Make + Drive sync, per-user visibility scopes + admin, and the
+ERP billing engine (time entries → charges → proforma → payments, retainer cron).
+Billing currently has no UI — engine, schema, webhook and cron only.
 
 ## Notes
 
-- **Authorization** is enforced in the app layer (`requireLawyer`) — v1 has a single
-  `lawyer` role. The `role` column is retained for future role separation.
+- **Authorization**: any active signed-in user may enter the app (`requireUser`);
+  per-user visibility scopes (`all` / `own` / `custom`) are enforced in every
+  list/detail/mutation query via `getViewer` + `lib/auth/scope.ts`. Admin-only and
+  finance-only areas are gated by `requireAdmin` / `requireFinanceRole`.
 - **Documents** are stored in Vercel Blob and served through an auth-gated proxy
   (`/api/documents/[id]/download`); blob URLs are never exposed to the client.
 - **Audit**: every status change writes `case_status_history` (atomic via `db.batch`);

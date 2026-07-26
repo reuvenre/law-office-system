@@ -11,9 +11,9 @@ import {
   caseStatusHistory,
 } from "@/lib/db/schema";
 import { asc, desc, eq, ilike, or } from "drizzle-orm";
-import { caseScope, withScope } from "@/lib/auth/scope";
+import { caseScope, withScope, type ViewerScope } from "@/lib/auth/scope";
 
-type Ids = string[] | null;
+type Ids = ViewerScope;
 
 export async function listCases(allowedIds: Ids, search?: string) {
   const rows = db

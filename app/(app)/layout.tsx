@@ -1,4 +1,4 @@
-import { requireLawyer } from "@/lib/auth/guards";
+import { requireUser } from "@/lib/auth/guards";
 import { AppShell } from "@/components/layout/app-shell";
 
 export default async function AppLayout({
@@ -6,6 +6,6 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireLawyer();
+  const user = await requireUser();
   return <AppShell user={user}>{children}</AppShell>;
 }

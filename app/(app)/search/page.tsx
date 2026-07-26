@@ -13,11 +13,11 @@ export const dynamic = "force-dynamic";
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: { q?: string };
+  searchParams: Promise<{ q?: string }>;
 }) {
-  const q = (searchParams.q ?? "").trim();
+  const q = ((await searchParams).q ?? "").trim();
   const viewer = await getViewer();
-  const results = q ? await globalSearch(q, viewer.allowedIds) : null;
+  const results = q ? await globalSearch(q, viewer) : null;
 
   return (
     <div>

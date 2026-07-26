@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
 export default async function HearingsPage() {
   const viewer = await getViewer();
   const [hearings, deadlines] = await Promise.all([
-    listScheduledHearings(viewer.allowedIds),
-    listOpenDeadlines(viewer.allowedIds),
+    listScheduledHearings(viewer),
+    listOpenDeadlines(viewer),
   ]);
 
   const events: CalendarEvent[] = [

@@ -280,6 +280,9 @@ export const documents = pgTable("documents", {
   driveFileId: text("drive_file_id"),
   driveUrl: text("drive_url"),
   syncStatus: syncStatusEnum("sync_status").notNull().default("pending"),
+  // Client portal: documents are private to the firm unless explicitly shared.
+  // Attorney work product must never leak to the portal by default.
+  sharedWithClient: boolean("shared_with_client").notNull().default(false),
   uploadedBy: uuid("uploaded_by").references(() => users.id),
   firmId: uuid("firm_id")
     .notNull()
@@ -606,6 +609,9 @@ export const invoices = pgTable(
     status: invoiceStatusEnum("status").notNull().default("draft"),
     allocationNumber: text("allocation_number"),
     externalDocId: text("external_doc_id"),
+    // Soft link: an issued tax invoice / receipt points back to the proforma
+    // it was generated from (Israeli practice keeps both documents).
+    sourceInvoiceId: uuid("source_invoice_id"),
     paymentLink: text("payment_link"),
     dueDate: date("due_date"),
     issuedAt: timestamp("issued_at", { withTimezone: true }),
@@ -630,24 +636,30 @@ export const invoiceLines = pgTable("invoice_lines", {
   lineTotal: numeric("line_total", { precision: 12, scale: 2 }).notNull(),
 });
 
-export const payments = pgTable("payments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  firmId: uuid("firm_id")
-    .notNull()
-    .default(DEFAULT_FIRM_ID)
-    .references(() => firms.id),
-  invoiceId: uuid("invoice_id").references(() => invoices.id),
-  clientId: uuid("client_id")
-    .notNull()
-    .references(() => clients.id),
-  method: paymentMethodEnum("method").notNull(),
-  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-  reference: text("reference"),
-  provider: text("provider"),
-  providerTxnId: text("provider_txn_id"),
-  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    firmId: uuid("firm_id")
+      .notNull()
+      .default(DEFAULT_FIRM_ID)
+      .references(() => firms.id),
+    invoiceId: uuid("invoice_id").references(() => invoices.id),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id),
+    method: paymentMethodEnum("method").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    reference: text("reference"),
+    provider: text("provider"),
+    providerTxnId: text("provider_txn_id"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Webhook idempotency: a provider transaction may only be recorded once.
+  // NULL provider_txn_id rows (manual payments) are unaffected.
+  (t) => ({ uqTxn: unique().on(t.provider, t.providerTxnId) })
+);
 
 export const trustAccounts = pgTable("trust_accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -678,6 +690,28 @@ export const trustTransactions = pgTable("trust_transactions", {
   description: text("description").notNull(),
   reference: text("reference"),
   approvedBy: uuid("approved_by").references(() => users.id),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/* ------------------------------------------------------------------ */
+/* client_portal_tokens — magic-link access for the client portal.     */
+/* Only the SHA-256 hash of the token is stored; the raw token is      */
+/* shown once at creation and never persisted.                         */
+/* ------------------------------------------------------------------ */
+export const clientPortalTokens = pgTable("client_portal_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id, { onDelete: "cascade" }),
+  firmId: uuid("firm_id")
+    .notNull()
+    .default(DEFAULT_FIRM_ID)
+    .references(() => firms.id),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

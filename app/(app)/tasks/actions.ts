@@ -28,7 +28,7 @@ export async function addTaskAction(
   if (!title) return { error: "כותרת היא שדה חובה" };
 
   const caseId = (formData.get("caseId") as string) || null;
-  if (caseId && !(await canAccessCase(caseId, user.allowedIds))) {
+  if (caseId && !(await canAccessCase(caseId, user))) {
     return { error: "אין הרשאה לתיק זה" };
   }
   const assignedTo = (formData.get("assignedTo") as string) || null;
@@ -57,7 +57,7 @@ export async function updateTaskAction(
   formData: FormData
 ): Promise<EventFormState> {
   const user = await getViewer();
-  if (!(await canAccessTask(taskId, user.allowedIds))) {
+  if (!(await canAccessTask(taskId, user))) {
     return { error: "אין הרשאה" };
   }
   const title = (formData.get("title") as string)?.trim();
@@ -89,7 +89,7 @@ export async function setTaskStatusAction(
   formData: FormData
 ) {
   const user = await getViewer();
-  if (!(await canAccessTask(taskId, user.allowedIds))) return;
+  if (!(await canAccessTask(taskId, user))) return;
   const status = String(formData.get("status")) as TaskStatus;
   await db.update(tasks).set({ status }).where(eq(tasks.id, taskId));
   await logActivity({
@@ -104,7 +104,7 @@ export async function setTaskStatusAction(
 
 export async function deleteTaskAction(taskId: string, caseId: string | null) {
   const user = await getViewer();
-  if (!(await canAccessTask(taskId, user.allowedIds))) return;
+  if (!(await canAccessTask(taskId, user))) return;
   await db.delete(tasks).where(eq(tasks.id, taskId));
   await logActivity({
     actorId: user.id,

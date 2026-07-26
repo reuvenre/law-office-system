@@ -16,9 +16,17 @@ import {
   DEFAULT_FIRM_ID,
 } from "@/lib/db/schema";
 import type { FeeAgreement } from "@/lib/erp/types";
+import {
+  VAT_RATE,
+  round2,
+  computeInvoiceTotals,
+  feeFromEntries,
+  buildRetainerCharges,
+  paymentStatus as calcPaymentStatus,
+  docCounterName,
+} from "@/lib/erp/calc";
 
-export const VAT_RATE = 18.0; // per-row on charges/invoices; update per law
-const round2 = (n: number) => Math.round(n * 100) / 100;
+export { VAT_RATE };
 
 /** Atomic per-firm sequential counter (mirrors the next_counter() SQL fn). */
 export async function nextCounter(firmId: string, name: string): Promise<number> {
@@ -56,40 +64,8 @@ export async function computeMonthlyRetainer(agreement: FeeAgreement, month: str
       )
     );
 
-  const totalHours = entries.reduce((s, e) => s + e.durationMin, 0) / 60;
-  const included = Number(agreement.retainerHours ?? 0);
-  const overageHours = Math.max(0, totalHours - included);
-  const overageRate = Number(agreement.overageRate ?? agreement.hourlyRate ?? 0);
-  const overageAmount = round2(overageHours * overageRate);
-
-  const list: {
-    firmId: string;
-    clientId: string;
-    chargeType: "retainer" | "fee";
-    description: string;
-    amount: string;
-    vatRate: string;
-  }[] = [
-    {
-      firmId: agreement.firmId,
-      clientId: agreement.clientId,
-      chargeType: "retainer",
-      description: `ריטיינר חודשי ${month} (${included} שעות כלולות)`,
-      amount: String(agreement.retainerAmount ?? 0),
-      vatRate: String(VAT_RATE),
-    },
-  ];
-  if (overageAmount > 0) {
-    list.push({
-      firmId: agreement.firmId,
-      clientId: agreement.clientId,
-      chargeType: "fee",
-      description: `שעות חורגות ${month}: ${overageHours.toFixed(2)} שעות`,
-      amount: String(overageAmount),
-      vatRate: String(VAT_RATE),
-    });
-  }
-  return { totalHours, overageHours, charges: list };
+  const totalMinutes = entries.reduce((s, e) => s + e.durationMin, 0);
+  return buildRetainerCharges(agreement, totalMinutes, month);
 }
 
 /** Turn un-invoiced billable time entries of a case into a single fee charge. */
@@ -111,9 +87,7 @@ export async function chargesFromTimeEntries(
     );
   if (!entries.length) return null;
 
-  const amount = round2(
-    entries.reduce((s, e) => s + (e.durationMin / 60) * Number(e.rate), 0)
-  );
+  const amount = feeFromEntries(entries);
   const totalMin = entries.reduce((s, e) => s + e.durationMin, 0);
   const [caseRow] = await db
     .select({ clientId: cases.clientId })
@@ -157,44 +131,52 @@ export async function createProforma(
       )
     );
   if (!rows.length) throw new Error("אין חיובים פתוחים");
+  const pendingIds = rows.map((c) => c.id);
 
-  const subtotal = round2(rows.reduce((s, c) => s + Number(c.amount), 0));
-  const vatAmount = round2((subtotal * VAT_RATE) / 100);
+  const { subtotal, vatAmount, total } = computeInvoiceTotals(
+    rows.map((c) => Number(c.amount))
+  );
   const docNumber = await nextCounter(firmId, "proforma");
 
-  const [invoice] = await db
-    .insert(invoices)
-    .values({
-      firmId,
-      clientId,
-      docType: "proforma",
-      docNumber,
-      subtotal: String(subtotal),
-      vatRate: String(VAT_RATE),
-      vatAmount: String(vatAmount),
-      total: String(round2(subtotal + vatAmount)),
-      status: "draft",
-      createdBy,
-    })
-    .returning();
+  // Invoice + lines + charge flips in one atomic batch (Neon runs a batch as
+  // a single transaction), so a mid-flight failure can't leave a proforma
+  // without lines or charges half-invoiced. The id is generated client-side
+  // so the dependent statements can reference it inside the same batch.
+  const invoiceId = crypto.randomUUID();
+  const [inserted] = await db.batch([
+    db
+      .insert(invoices)
+      .values({
+        id: invoiceId,
+        firmId,
+        clientId,
+        docType: "proforma",
+        docNumber,
+        subtotal: String(subtotal),
+        vatRate: String(VAT_RATE),
+        vatAmount: String(vatAmount),
+        total: String(total),
+        status: "draft",
+        createdBy,
+      })
+      .returning(),
+    db.insert(invoiceLines).values(
+      rows.map((c) => ({
+        invoiceId,
+        chargeId: c.id,
+        description: c.description,
+        quantity: "1",
+        unitPrice: String(c.amount),
+        lineTotal: String(c.amount),
+      }))
+    ),
+    db
+      .update(charges)
+      .set({ status: "invoiced", invoiceId })
+      .where(and(inArray(charges.id, pendingIds), eq(charges.status, "pending"))),
+  ]);
 
-  await db.insert(invoiceLines).values(
-    rows.map((c) => ({
-      invoiceId: invoice.id,
-      chargeId: c.id,
-      description: c.description,
-      quantity: "1",
-      unitPrice: String(c.amount),
-      lineTotal: String(c.amount),
-    }))
-  );
-
-  await db
-    .update(charges)
-    .set({ status: "invoiced", invoiceId: invoice.id })
-    .where(inArray(charges.id, chargeIds));
-
-  return invoice;
+  return inserted[0];
 }
 
 /** Record a payment and recompute invoice status. Called by the payment webhook. */
@@ -216,6 +198,29 @@ export async function recordPayment(
     .limit(1);
   if (!invoice) throw new Error("חשבונית לא נמצאה");
 
+  // Idempotency: payment providers retry webhooks. A transaction we already
+  // recorded must not be inserted twice or flip the invoice status again.
+  if (payment.providerTxnId) {
+    const dup = await db
+      .select({ id: payments.id })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.provider, payment.provider ?? ""),
+          eq(payments.providerTxnId, payment.providerTxnId)
+        )
+      )
+      .limit(1);
+    if (dup.length > 0) {
+      const paid = await db
+        .select({ amount: payments.amount })
+        .from(payments)
+        .where(eq(payments.invoiceId, invoiceId));
+      const totalPaid = paid.reduce((s, p) => s + Number(p.amount), 0);
+      return { status: invoice.status, totalPaid, duplicate: true as const };
+    }
+  }
+
   await db.insert(payments).values({
     firmId,
     invoiceId,
@@ -231,15 +236,94 @@ export async function recordPayment(
     .select({ amount: payments.amount })
     .from(payments)
     .where(eq(payments.invoiceId, invoiceId));
-  const totalPaid = paid.reduce((s, p) => s + Number(p.amount), 0);
+  const totalPaid = round2(paid.reduce((s, p) => s + Number(p.amount), 0));
 
-  const status = totalPaid >= Number(invoice.total) ? "paid" : "partially_paid";
+  const status = calcPaymentStatus(totalPaid, Number(invoice.total));
   await db
     .update(invoices)
     .set({ status, ...(status === "paid" ? { paidAt: new Date() } : {}) })
     .where(eq(invoices.id, invoiceId));
 
   return { status, totalPaid };
+}
+
+/**
+ * Issue an official tax document (חשבונית מס / חשבונית מס-קבלה / קבלה) from a
+ * proforma. Creates a NEW invoice row in its own number series — the proforma
+ * is preserved (Israeli bookkeeping keeps both). Lines are copied; the new
+ * document links back via source_invoice_id and stores the Tax Authority
+ * allocation number (מספר הקצאה) when supplied.
+ */
+export async function issueTaxInvoice(
+  proformaId: string,
+  opts: {
+    docType: "tax_invoice" | "invoice_receipt" | "receipt";
+    allocationNumber?: string;
+  },
+  createdBy: string | null,
+  firmId: string = DEFAULT_FIRM_ID
+) {
+  const [proforma] = await db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.id, proformaId), eq(invoices.firmId, firmId)))
+    .limit(1);
+  if (!proforma) throw new Error("חשבון עסקה לא נמצא");
+  if (proforma.docType !== "proforma") {
+    throw new Error("ניתן להפיק מסמך רשמי רק מחשבון עסקה");
+  }
+  if (proforma.status === "cancelled") {
+    throw new Error("לא ניתן להפיק מסמך מחשבון שבוטל");
+  }
+
+  const lines = await db
+    .select()
+    .from(invoiceLines)
+    .where(eq(invoiceLines.invoiceId, proformaId));
+
+  const docNumber = await nextCounter(firmId, docCounterName(opts.docType));
+  const newId = crypto.randomUUID();
+
+  const [inserted] = await db.batch([
+    db
+      .insert(invoices)
+      .values({
+        id: newId,
+        firmId,
+        clientId: proforma.clientId,
+        caseId: proforma.caseId,
+        docType: opts.docType,
+        docNumber,
+        subtotal: proforma.subtotal,
+        vatRate: proforma.vatRate,
+        vatAmount: proforma.vatAmount,
+        total: proforma.total,
+        currency: proforma.currency,
+        status: "sent",
+        allocationNumber: opts.allocationNumber ?? null,
+        sourceInvoiceId: proformaId,
+        issuedAt: new Date(),
+        createdBy,
+      })
+      .returning(),
+    db.insert(invoiceLines).values(
+      lines.map((l) => ({
+        invoiceId: newId,
+        chargeId: l.chargeId,
+        description: l.description,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        lineTotal: l.lineTotal,
+      }))
+    ),
+    // Mark the proforma as sent so it's clear it has been acted upon.
+    db
+      .update(invoices)
+      .set({ status: proforma.status === "draft" ? "sent" : proforma.status })
+      .where(eq(invoices.id, proformaId)),
+  ]);
+
+  return inserted[0];
 }
 
 /** Cancel an invoice — never delete (tax rules): set cancelled_at + status. */

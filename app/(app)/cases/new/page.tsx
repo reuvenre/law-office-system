@@ -11,11 +11,12 @@ export const dynamic = "force-dynamic";
 export default async function NewCasePage({
   searchParams,
 }: {
-  searchParams: { clientId?: string };
+  searchParams: Promise<{ clientId?: string }>;
 }) {
+  const { clientId: fixedClientId } = await searchParams;
   const viewer = await getViewer();
   const [clientRows, lawyers] = await Promise.all([
-    listClients(viewer.allowedIds),
+    listClients(viewer),
     listActiveLawyers(),
   ]);
   const clients = clientRows.map((c) => ({ id: c.id, fullName: c.fullName }));
@@ -28,7 +29,7 @@ export default async function NewCasePage({
         action={createCaseAction}
         clients={clients}
         lawyers={lawyers}
-        fixedClientId={searchParams.clientId}
+        fixedClientId={fixedClientId}
         submitLabel="יצירת תיק"
       />
     </div>

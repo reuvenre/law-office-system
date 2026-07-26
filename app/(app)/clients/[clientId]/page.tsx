@@ -14,6 +14,8 @@ import { AuthorStamp } from "@/components/shared/author-stamp";
 import { InlineDelete } from "@/components/shared/inline-delete";
 import { NoteComposer } from "@/components/notes/note-composer";
 import { DocumentUploader } from "@/components/documents/document-uploader";
+import { ShareToggle } from "@/components/documents/share-toggle";
+import { PortalLinkManager } from "@/components/portal/portal-link-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -46,14 +48,15 @@ function Detail({ label, value, ltr }: { label: string; value?: string | null; l
 export default async function ClientCardPage({
   params,
 }: {
-  params: { clientId: string };
+  params: Promise<{ clientId: string }>;
 }) {
+  const { clientId } = await params;
   const viewer = await getViewer();
-  const client = await getClient(params.clientId, viewer.allowedIds);
+  const client = await getClient(clientId, viewer);
   if (!client) notFound();
 
   const [clientCases, clientNotes, clientDocs] = await Promise.all([
-    getClientCases(client.id, viewer.allowedIds),
+    getClientCases(client.id, viewer),
     getClientNotes(client.id),
     getClientDocuments(client.id),
   ]);
@@ -207,13 +210,30 @@ export default async function ClientCardPage({
                         {SYNC_STATUSES[doc.syncStatus as SyncStatus]}
                       </p>
                     </div>
-                    <InlineDelete
-                      action={deleteDocumentAction.bind(null, doc.id, doc.caseId, client.id)}
-                    />
+                    <div className="flex items-center gap-2">
+                      <ShareToggle
+                        docId={doc.id}
+                        caseId={doc.caseId}
+                        clientId={client.id}
+                        shared={doc.sharedWithClient}
+                      />
+                      <InlineDelete
+                        action={deleteDocumentAction.bind(null, doc.id, doc.caseId, client.id)}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">אזור אישי ללקוח</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PortalLinkManager clientId={client.id} />
           </CardContent>
         </Card>
       </div>

@@ -1,12 +1,25 @@
 import { db } from "@/lib/db";
 import { activityLog, users } from "@/lib/db/schema";
 import { desc, eq, inArray } from "drizzle-orm";
+import type { ViewerScope } from "@/lib/auth/scope";
 
-type Ids = string[] | null;
+/**
+ * Recent activity. Always bounded to the firm's users (activity_log has no
+ * firm_id, so tenant isolation goes through actorId); scoped viewers see only
+ * actions by users they may see.
+ */
+export async function getRecentActivity(limit = 20, scope: ViewerScope) {
+  const firmUserIds = db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.firmId, scope.firmId));
 
-/** Recent activity. Scoped viewers see only actions by users they can see. */
-export async function getRecentActivity(limit = 20, allowedIds: Ids = null) {
-  const q = db
+  const actorCond =
+    scope.allowedIds === null
+      ? inArray(activityLog.actorId, firmUserIds)
+      : inArray(activityLog.actorId, scope.allowedIds);
+
+  return db
     .select({
       id: activityLog.id,
       action: activityLog.action,
@@ -17,12 +30,8 @@ export async function getRecentActivity(limit = 20, allowedIds: Ids = null) {
       actorName: users.fullName,
     })
     .from(activityLog)
-    .leftJoin(users, eq(activityLog.actorId, users.id));
-
-  const scoped =
-    allowedIds === null
-      ? q
-      : q.where(inArray(activityLog.actorId, allowedIds));
-
-  return scoped.orderBy(desc(activityLog.createdAt)).limit(limit);
+    .leftJoin(users, eq(activityLog.actorId, users.id))
+    .where(actorCond)
+    .orderBy(desc(activityLog.createdAt))
+    .limit(limit);
 }

@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
 import { hearings, deadlines, tasks, cases, clients, users } from "@/lib/db/schema";
 import { and, asc, desc, eq, gte, lte, ne } from "drizzle-orm";
-import { caseScope, taskScope, withScope } from "@/lib/auth/scope";
+import { caseScope, taskScope, withScope, type ViewerScope } from "@/lib/auth/scope";
 
-type Ids = string[] | null;
+type Ids = ViewerScope;
 
-export async function getUpcomingHearings(days = 14, allowedIds: Ids = null) {
+export async function getUpcomingHearings(days = 14, allowedIds: Ids) {
   const now = new Date();
   const until = new Date(now.getTime() + days * 86400000);
   const where = withScope(
@@ -34,7 +34,7 @@ export async function getUpcomingHearings(days = 14, allowedIds: Ids = null) {
     .orderBy(asc(hearings.hearingAt));
 }
 
-export async function getUpcomingDeadlines(days = 14, allowedIds: Ids = null) {
+export async function getUpcomingDeadlines(days = 14, allowedIds: Ids) {
   const now = new Date();
   const until = new Date(now.getTime() + days * 86400000);
   const where = withScope(
@@ -63,7 +63,7 @@ export async function getUpcomingDeadlines(days = 14, allowedIds: Ids = null) {
     .orderBy(asc(deadlines.dueAt));
 }
 
-export async function listScheduledHearings(allowedIds: Ids = null) {
+export async function listScheduledHearings(allowedIds: Ids) {
   const where = withScope(eq(hearings.status, "scheduled"), caseScope(allowedIds));
   return db
     .select({
@@ -83,7 +83,7 @@ export async function listScheduledHearings(allowedIds: Ids = null) {
     .orderBy(asc(hearings.hearingAt));
 }
 
-export async function listOpenDeadlines(allowedIds: Ids = null) {
+export async function listOpenDeadlines(allowedIds: Ids) {
   const where = withScope(eq(deadlines.isDone, false), caseScope(allowedIds));
   return db
     .select({
@@ -103,7 +103,7 @@ export async function listOpenDeadlines(allowedIds: Ids = null) {
     .orderBy(asc(deadlines.dueAt));
 }
 
-export async function listTasks(assigneeId?: string, allowedIds: Ids = null) {
+export async function listTasks(assigneeId: string | undefined, allowedIds: Ids) {
   const rows = db
     .select({
       t: tasks,

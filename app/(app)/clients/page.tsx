@@ -22,11 +22,11 @@ export const dynamic = "force-dynamic";
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: { q?: string };
+  searchParams: Promise<{ q?: string }>;
 }) {
-  const q = searchParams.q ?? "";
+  const q = (await searchParams).q ?? "";
   const viewer = await getViewer();
-  const rows = await listClients(viewer.allowedIds, q);
+  const rows = await listClients(viewer, q);
 
   return (
     <div>

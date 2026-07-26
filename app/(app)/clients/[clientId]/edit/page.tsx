@@ -10,10 +10,11 @@ export const dynamic = "force-dynamic";
 export default async function EditClientPage({
   params,
 }: {
-  params: { clientId: string };
+  params: Promise<{ clientId: string }>;
 }) {
+  const { clientId } = await params;
   const viewer = await getViewer();
-  const client = await getClient(params.clientId, viewer.allowedIds);
+  const client = await getClient(clientId, viewer);
   if (!client) notFound();
 
   const action = updateClientAction.bind(null, client.id);

@@ -1,9 +1,9 @@
 import { db } from "@/lib/db";
 import { clients, cases } from "@/lib/db/schema";
 import { eq, ilike, or } from "drizzle-orm";
-import { caseScope, clientScope, withScope } from "@/lib/auth/scope";
+import { caseScope, clientScope, withScope, type ViewerScope } from "@/lib/auth/scope";
 
-type Ids = string[] | null;
+type Ids = ViewerScope;
 
 export async function globalSearch(q: string, allowedIds: Ids) {
   const like = `%${q.trim()}%`;

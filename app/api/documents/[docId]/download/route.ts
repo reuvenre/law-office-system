@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { getViewer } from "@/lib/auth/viewer";
-import { getDocument } from "@/lib/data/documents";
+import { getDocument, streamStoredDocument } from "@/lib/data/documents";
 
 /**
  * Auth-gated download proxy. The Vercel Blob URL is never exposed to the
@@ -9,31 +9,19 @@ import { getDocument } from "@/lib/data/documents";
  */
 export async function GET(
   _req: Request,
-  { params }: { params: { docId: string } }
+  { params }: { params: Promise<{ docId: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  const { docId } = await params;
   const viewer = await getViewer();
-  const doc = await getDocument(params.docId, viewer.allowedIds);
+  const doc = await getDocument(docId, viewer);
   if (!doc?.storagePath) {
     return new Response("Not found", { status: 404 });
   }
 
-  const upstream = await fetch(doc.storagePath);
-  if (!upstream.ok || !upstream.body) {
-    return new Response("Not found", { status: 404 });
-  }
-
-  const headers = new Headers();
-  headers.set("Content-Type", doc.mimeType || "application/octet-stream");
-  headers.set(
-    "Content-Disposition",
-    `inline; filename*=UTF-8''${encodeURIComponent(doc.fileName)}`
-  );
-  headers.set("Cache-Control", "private, no-store");
-
-  return new Response(upstream.body, { headers });
+  return streamStoredDocument(doc);
 }

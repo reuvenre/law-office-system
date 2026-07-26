@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { feeAgreements, charges } from "@/lib/db/schema";
 import { computeMonthlyRetainer, createProforma } from "@/lib/erp/billing";
+import { lastDayOfMonth as lastDayOf, retainerFiresToday } from "@/lib/erp/calc";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -20,24 +21,55 @@ export async function GET(request: Request) {
   }
 
   try {
-    const today = new Date();
-    const day = today.getDate();
-    const month = today.toISOString().slice(0, 7); // YYYY-MM
+    // Business dates are Israel-local, not UTC (the 04:00 UTC cron run is
+    // already the 6th/7th hour of the day in Asia/Jerusalem).
+    const todayStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jerusalem",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date()); // YYYY-MM-DD
+    const [y, m, day] = todayStr.split("-").map(Number);
+    const lastDayOfMonth = lastDayOf(y, m);
+    const month = `${y}-${String(m).padStart(2, "0")}`; // YYYY-MM
 
-    const agreements = await db
-      .select()
-      .from(feeAgreements)
-      .where(
-        and(
-          eq(feeAgreements.isActive, true),
-          eq(feeAgreements.retainerBillingDay, day)
+    const agreements = (
+      await db
+        .select()
+        .from(feeAgreements)
+        .where(
+          and(
+            eq(feeAgreements.isActive, true),
+            inArray(feeAgreements.agreementType, ["retainer", "mixed"])
+          )
         )
-      );
+    ).filter((ag) =>
+      retainerFiresToday(ag.retainerBillingDay ?? 1, day, lastDayOfMonth)
+    );
 
     let proformas = 0;
     let chargesCreated = 0;
+    let skippedAlreadyBilled = 0;
     for (const ag of agreements) {
-      if (ag.agreementType !== "retainer" && ag.agreementType !== "mixed") continue;
+      // Idempotency: never bill the same client's retainer twice in a month
+      // (protects against manual re-runs and duplicate cron fires).
+      const already = await db
+        .select({ id: charges.id })
+        .from(charges)
+        .where(
+          and(
+            eq(charges.clientId, ag.clientId),
+            eq(charges.chargeType, "retainer"),
+            gte(charges.chargeDate, `${month}-01`),
+            lte(charges.chargeDate, `${month}-${String(lastDayOfMonth).padStart(2, "0")}`)
+          )
+        )
+        .limit(1);
+      if (already.length > 0) {
+        skippedAlreadyBilled++;
+        continue;
+      }
+
       const { charges: payloads } = await computeMonthlyRetainer(ag, month);
       if (!payloads.length) continue;
 
@@ -70,6 +102,7 @@ export async function GET(request: Request) {
       agreements: agreements.length,
       proformas,
       chargesCreated,
+      skippedAlreadyBilled,
     });
   } catch (e) {
     console.error("retainers cron failed", e);

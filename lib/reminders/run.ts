@@ -48,6 +48,8 @@ async function dispatch(
   const recipient = params.channel === "email" ? params.email : params.phone;
   if (!recipient) return void summary.skipped++;
 
+  // Dedupe only on *successful* sends — a failed attempt should not block
+  // the retry on the next cron run.
   const cutoff = new Date(Date.now() - 20 * 3600 * 1000);
   const existing = await db
     .select({ id: messageLog.id })
@@ -56,6 +58,7 @@ async function dispatch(
       and(
         eq(messageLog.triggerType, params.triggerType),
         eq(messageLog.triggerRefId, params.triggerRefId),
+        eq(messageLog.status, "sent"),
         gt(messageLog.sentAt, cutoff)
       )
     )

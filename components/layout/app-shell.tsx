@@ -79,6 +79,14 @@ export function AppShell({
               </Button>
             </form>
           </div>
+          <a
+            href="https://win-solutions.co.il"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block px-1 pt-2 text-center text-[11px] text-muted-foreground hover:text-primary"
+          >
+            מבית win-solutions.co.il
+          </a>
         </div>
       </aside>
 

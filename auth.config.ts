@@ -16,13 +16,16 @@ export const authConfig = {
 
       const isAuthRoute = pathname.startsWith("/login");
       // Machine endpoints authenticate via their own shared secret, not a
-      // user session — they must bypass session-based middleware.
+      // user session — they must bypass session-based middleware. The client
+      // portal authenticates with its own hashed magic-link token + httpOnly
+      // cookie (lib/portal/tokens.ts), so it is likewise not session-gated.
       const isPublic =
         pathname === "/" ||
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/cron") ||
         pathname.startsWith("/api/webhooks") ||
-        pathname.startsWith("/api/integrations");
+        pathname.startsWith("/api/integrations") ||
+        pathname.startsWith("/portal");
 
       if (isAuthRoute) {
         if (isLoggedIn) {

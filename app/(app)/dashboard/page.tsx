@@ -35,11 +35,11 @@ export default async function DashboardPage() {
   const viewer = await getViewer();
   const [weekHearings, deadlines14, activeCases, myTasks, activity] =
     await Promise.all([
-      getUpcomingHearings(7, viewer.allowedIds),
-      getUpcomingDeadlines(14, viewer.allowedIds),
-      countActiveCases(viewer.allowedIds),
-      listTasks(viewer.id),
-      getRecentActivity(15, viewer.allowedIds),
+      getUpcomingHearings(7, viewer),
+      getUpcomingDeadlines(14, viewer),
+      countActiveCases(viewer),
+      listTasks(viewer.id, viewer),
+      getRecentActivity(15, viewer),
     ]);
 
   return (

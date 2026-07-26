@@ -5,8 +5,11 @@ import {
   CalendarDays,
   Clock,
   CheckSquare,
+  Receipt,
+  Sparkles,
   Search,
   Settings,
+  HelpCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,7 +27,10 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/hearings", label: "יומן", icon: CalendarDays },
   { href: "/deadlines", label: "מועדים", icon: Clock },
   { href: "/tasks", label: "משימות", icon: CheckSquare },
+  { href: "/billing", label: "חיוב וגבייה", icon: Receipt },
+  { href: "/ai", label: "עוזר AI", icon: Sparkles },
   { href: "/search", label: "חיפוש", icon: Search },
+  { href: "/help", label: "מדריך למשתמש", icon: HelpCircle },
   { href: "/settings", label: "הגדרות", icon: Settings },
 ];
 
