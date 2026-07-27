@@ -50,6 +50,9 @@ export async function uploadDocumentAction(
   const [row] = await db
     .insert(documents)
     .values({
+      // Stamp the uploader's firm explicitly — the column default would file
+      // every upload under the seed firm the moment a second tenant exists.
+      firmId: user.firmId,
       caseId,
       clientId,
       fileName: file.name,
