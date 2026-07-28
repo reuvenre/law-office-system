@@ -30,6 +30,7 @@ export const authConfig = {
         pathname === "/terms" ||
         isRecoveryRoute ||
         pathname.startsWith("/api/auth") ||
+        pathname.startsWith("/api/health") ||
         pathname.startsWith("/api/cron") ||
         pathname.startsWith("/api/webhooks") ||
         pathname.startsWith("/api/integrations") ||

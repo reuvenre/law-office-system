@@ -11,6 +11,7 @@ import { InvoiceStatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { RecordPaymentForm } from "@/components/billing/record-payment-form";
 import { IssueInvoiceDialog } from "@/components/billing/issue-invoice-dialog";
+import { PrintInvoiceButton } from "@/components/billing/print-invoice-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,7 +33,15 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function Detail({ label, value, ltr }: { label: string; value?: string | null; ltr?: boolean }) {
+function Detail({
+  label,
+  value,
+  ltr,
+}: {
+  label: string;
+  value?: string | null;
+  ltr?: boolean;
+}) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -70,26 +79,31 @@ export default async function InvoiceDetailPage({
         action={
           <div className="flex flex-wrap items-center gap-2">
             <InvoiceStatusBadge status={status} />
-            <Button asChild variant="outline" size="sm">
+            <PrintInvoiceButton />
+            <Button asChild variant="outline" size="sm" className="print-hide">
               <Link href="/billing">חזרה לרשימה</Link>
             </Button>
             {canManage && isProforma && !isCancelled && (
-              <IssueInvoiceDialog proformaId={inv.id} />
+              <span className="print-hide">
+                <IssueInvoiceDialog proformaId={inv.id} />
+              </span>
             )}
             {canManage && !isCancelled && (
-              <ConfirmDeleteButton
-                action={cancelInvoiceAction.bind(null, inv.id)}
-                triggerLabel="ביטול מסמך"
-                title="ביטול מסמך"
-                description="המסמך יסומן כמבוטל (לא נמחק — כללי מס). הפעולה תתועד."
-              />
+              <span className="print-hide">
+                <ConfirmDeleteButton
+                  action={cancelInvoiceAction.bind(null, inv.id)}
+                  triggerLabel="ביטול מסמך"
+                  title="ביטול מסמך"
+                  description="המסמך יסומן כמבוטל (לא נמחק — כללי מס). הפעולה תתועד."
+                />
+              </span>
             )}
           </div>
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="grid gap-4 lg:grid-cols-3 print-stack">
+        <Card className="lg:col-span-2 print-flat">
           <CardHeader>
             <CardTitle className="text-base">שורות</CardTitle>
           </CardHeader>
@@ -111,8 +125,12 @@ export default async function InvoiceDetailPage({
                     <TableRow key={l.id}>
                       <TableCell>{l.description}</TableCell>
                       <TableCell dir="ltr">{Number(l.quantity)}</TableCell>
-                      <TableCell dir="ltr">{formatCurrency(Number(l.unitPrice))}</TableCell>
-                      <TableCell dir="ltr">{formatCurrency(Number(l.lineTotal))}</TableCell>
+                      <TableCell dir="ltr">
+                        {formatCurrency(Number(l.unitPrice))}
+                      </TableCell>
+                      <TableCell dir="ltr">
+                        {formatCurrency(Number(l.lineTotal))}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -125,7 +143,9 @@ export default async function InvoiceDetailPage({
                 <dd dir="ltr">{formatCurrency(Number(inv.subtotal))}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">מע״מ ({Number(inv.vatRate)}%)</dt>
+                <dt className="text-muted-foreground">
+                  מע״מ ({Number(inv.vatRate)}%)
+                </dt>
                 <dd dir="ltr">{formatCurrency(Number(inv.vatAmount))}</dd>
               </div>
               <div className="flex justify-between text-base font-semibold">
@@ -159,14 +179,22 @@ export default async function InvoiceDetailPage({
               {inv.allocationNumber && (
                 <Detail label="מספר הקצאה" value={inv.allocationNumber} ltr />
               )}
-              {inv.issuedAt && <Detail label="הופק ב" value={formatDate(inv.issuedAt)} ltr />}
-              {inv.dueDate && <Detail label="לתשלום עד" value={formatDate(inv.dueDate)} ltr />}
-              {inv.paidAt && <Detail label="שולם ב" value={formatDate(inv.paidAt)} ltr />}
+              {inv.issuedAt && (
+                <Detail label="הופק ב" value={formatDate(inv.issuedAt)} ltr />
+              )}
+              {inv.dueDate && (
+                <Detail label="לתשלום עד" value={formatDate(inv.dueDate)} ltr />
+              )}
+              {inv.paidAt && (
+                <Detail label="שולם ב" value={formatDate(inv.paidAt)} ltr />
+              )}
             </dl>
 
             {inv.relatedDocs.length > 0 && (
               <div className="mt-4 border-t pt-4">
-                <p className="mb-2 text-xs text-muted-foreground">מסמכים מקושרים</p>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  מסמכים מקושרים
+                </p>
                 <ul className="space-y-1">
                   {inv.relatedDocs.map((d) => (
                     <li key={d.id}>
@@ -187,7 +215,9 @@ export default async function InvoiceDetailPage({
 
       <Card className="mt-4">
         <CardHeader>
-          <CardTitle className="text-base">תשלומים ({inv.payments.length})</CardTitle>
+          <CardTitle className="text-base">
+            תשלומים ({inv.payments.length})
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {canManage && !isCancelled && !isPaid && (
@@ -198,7 +228,10 @@ export default async function InvoiceDetailPage({
           ) : (
             <ul className="divide-y">
               {inv.payments.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 py-3">
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 py-3"
+                >
                   <div>
                     <p className="text-sm font-medium" dir="ltr">
                       {formatCurrency(Number(p.amount))}

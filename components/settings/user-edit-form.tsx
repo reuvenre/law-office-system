@@ -58,7 +58,11 @@ function ChangePasswordDialog({ userId }: { userId: string }) {
           </DialogHeader>
           <form
             action={async (fd) => {
-              await setPasswordAction(userId, fd);
+              const res = await setPasswordAction(userId, fd);
+              if (res?.error) {
+                toast.error(res.error);
+                return;
+              }
               toast.success("הסיסמה עודכנה");
               setOpen(false);
             }}

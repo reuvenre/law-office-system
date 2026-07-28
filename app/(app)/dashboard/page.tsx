@@ -7,6 +7,8 @@ import {
 } from "@/lib/data/events";
 import { countActiveCases } from "@/lib/data/cases";
 import { getRecentActivity } from "@/lib/data/activity";
+import { recentFailedReminders } from "@/lib/data/messages";
+import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { ActivityFeed } from "@/components/shared/activity-feed";
 import { PriorityBadge } from "@/components/shared/status-badge";
@@ -33,18 +35,52 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
 
 export default async function DashboardPage() {
   const viewer = await getViewer();
-  const [weekHearings, deadlines14, activeCases, myTasks, activity] =
+  const [weekHearings, deadlines14, activeCases, myTasks, activity, failedReminders] =
     await Promise.all([
       getUpcomingHearings(7, viewer),
       getUpcomingDeadlines(14, viewer),
       countActiveCases(viewer),
       listTasks(viewer.id, viewer),
       getRecentActivity(15, viewer),
+      recentFailedReminders(viewer.firmId),
     ]);
 
   return (
     <div>
       <PageHeader title={`שלום, ${viewer.name}`} description="מבט מהיר על המשרד" />
+
+      {failedReminders.length > 0 && (
+        <Card className="mb-6 border-warning/50 bg-warning/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-warning">
+              <AlertTriangle className="h-4 w-4" />
+              תזכורות שלא נשלחו ({failedReminders.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-2 text-sm text-muted-foreground">
+              הלקוחות הבאים לא קיבלו את התזכורת שלהם בשבוע האחרון. כדאי ליצור
+              איתם קשר ישירות.
+            </p>
+            <ul className="divide-y">
+              {failedReminders.map((m) => (
+                <li key={m.id} className="flex items-center justify-between gap-3 py-2">
+                  <Link
+                    href={`/clients/${m.clientId}`}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    {m.clientName}
+                  </Link>
+                  <span className="text-xs text-muted-foreground">
+                    {m.triggerType === "hearing" ? "דיון" : "מועד"} ·{" "}
+                    {formatDate(m.createdAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="דיונים השבוע" value={weekHearings.length} />

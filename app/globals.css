@@ -66,3 +66,55 @@
     text-wrap: balance;
   }
 }
+
+/*
+ * Print: an issued חשבונית מס has to be deliverable to the client. Printing
+ * to PDF from the invoice page is the cheapest path to that, so the chrome
+ * (sidebar, buttons, nav) is dropped and the document itself is laid out flat.
+ * Mark anything that should not appear on paper with .print-hide.
+ */
+@media print {
+  .print-hide,
+  nav,
+  aside,
+  header button,
+  [role="alert"] {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Cards become plain sections — borders and shadows waste toner. */
+  .print-flat,
+  .print-flat * {
+    box-shadow: none !important;
+  }
+
+  .print-flat {
+    border: none !important;
+    break-inside: avoid;
+  }
+
+  /* Side-by-side panels stack, so nothing is cut off at the page edge. */
+  .print-stack {
+    display: block !important;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+}

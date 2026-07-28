@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { addNoteAction } from "@/app/(app)/notes/actions";
 import { Button } from "@/components/ui/button";
@@ -23,19 +23,32 @@ export function NoteComposer({
   clientId?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <form
       ref={formRef}
       action={async (formData) => {
-        await addNoteAction(formData);
-        formRef.current?.reset();
+        const result = await addNoteAction(formData);
+        // Only clear the textarea once the note is actually stored — otherwise a
+        // rejected save silently destroys what was typed.
+        if (result?.ok) {
+          setError(null);
+          formRef.current?.reset();
+        } else {
+          setError(result?.error ?? "שמירת ההערה נכשלה");
+        }
       }}
       className="space-y-2"
     >
       {caseId && <input type="hidden" name="caseId" value={caseId} />}
       {clientId && <input type="hidden" name="clientId" value={clientId} />}
       <Textarea name="body" rows={2} placeholder="הוספת הערה..." required />
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
       <div className="flex justify-end">
         <SubmitButton />
       </div>
