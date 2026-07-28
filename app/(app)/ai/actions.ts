@@ -2,6 +2,7 @@
 
 import { getViewer } from "@/lib/auth/viewer";
 import { canAccessCase } from "@/lib/auth/scope";
+import { aiAvailableFor } from "@/lib/ai/gate";
 import {
   getCase,
   getCaseHearings,
@@ -13,9 +14,16 @@ import { logActivity } from "@/lib/activity";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { PRACTICE_AREAS, CASE_STATUSES } from "@/lib/constants";
 
+const AI_DISABLED_MESSAGE =
+  "עוזר ה-AI אינו פעיל עבור המשרד. להפעלה פנו ל-win-solutions.co.il.";
+
 /** AI status summary for a case (any user with case access). */
 export async function summarizeCaseAction(caseId: string): Promise<AiResult> {
   const viewer = await getViewer();
+  // The firm's own switch — never rely on the page having hidden the button.
+  if (!(await aiAvailableFor(viewer.firmId))) {
+    return { ok: false, error: AI_DISABLED_MESSAGE };
+  }
   if (!(await canAccessCase(caseId, viewer))) {
     return { ok: false, error: "אין הרשאה לתיק זה" };
   }
@@ -71,6 +79,9 @@ export async function draftDocumentAction(
   caseId?: string
 ): Promise<AiResult> {
   const viewer = await getViewer();
+  if (!(await aiAvailableFor(viewer.firmId))) {
+    return { ok: false, error: AI_DISABLED_MESSAGE };
+  }
   const trimmed = instruction.trim();
   if (trimmed.length < 5) {
     return { ok: false, error: "יש להזין הנחיה מפורטת יותר" };

@@ -26,6 +26,8 @@ export const authConfig = {
       // cookie (lib/portal/tokens.ts), so it is likewise not session-gated.
       const isPublic =
         pathname === "/" ||
+        pathname === "/privacy" ||
+        pathname === "/terms" ||
         isRecoveryRoute ||
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/cron") ||

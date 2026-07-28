@@ -5,13 +5,21 @@
  * truth (lets support toggle a single module without changing the plan).
  *
  * Pure module — no DB — so it is unit-testable and shared by UI + guards.
+ *
+ * Only ship modules that exist. "הוצאה לפועל" and "הנהלת חשבונות" were priced
+ * into the tiers and tickable in Settings while no route, screen or guard for
+ * either was ever built — selling a tier on a feature that does not exist is a
+ * refund waiting to happen. They come back when they are real.
+ *
+ * `ai` is off by default on every tier, including enterprise's implicit
+ * defaults, because turning it on sends privileged case material to a
+ * third-party API. That is a decision each firm makes deliberately.
  */
 
 export const MODULES = {
   billing: "חיוב וגבייה",
   documents: "מסמכים",
-  enforcement: "הוצאה לפועל",
-  accounting: "הנהלת חשבונות",
+  ai: "עוזר AI",
 } as const;
 export type ModuleKey = keyof typeof MODULES;
 
@@ -31,21 +39,21 @@ export const PLANS: Record<string, Plan> = {
     label: "בסיסי",
     priceHint: "עד 3 משתמשים",
     maxSeats: 3,
-    modules: { billing: false, documents: true, enforcement: false, accounting: false },
+    modules: { billing: false, documents: true, ai: false },
   },
   pro: {
     key: "pro",
     label: "מקצועי",
-    priceHint: "עד 15 משתמשים · חיוב והוצל״פ",
+    priceHint: "עד 15 משתמשים · חיוב וגבייה",
     maxSeats: 15,
-    modules: { billing: true, documents: true, enforcement: true, accounting: false },
+    modules: { billing: true, documents: true, ai: false },
   },
   enterprise: {
     key: "enterprise",
     label: "ארגוני",
     priceHint: "ללא הגבלת משתמשים · כל המודולים",
     maxSeats: null,
-    modules: { billing: true, documents: true, enforcement: true, accounting: true },
+    modules: { billing: true, documents: true, ai: true },
   },
 };
 

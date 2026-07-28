@@ -16,22 +16,22 @@ describe("isModuleEnabled", () => {
   it("uses the plan default when the firm has no explicit map", () => {
     expect(isModuleEnabled({ licensePlan: "basic" }, "billing")).toBe(false);
     expect(isModuleEnabled({ licensePlan: "pro" }, "billing")).toBe(true);
-    expect(isModuleEnabled({ licensePlan: "pro" }, "accounting")).toBe(false);
-    expect(isModuleEnabled({ licensePlan: "enterprise" }, "accounting")).toBe(true);
+    expect(isModuleEnabled({ licensePlan: "pro" }, "ai")).toBe(false);
+    expect(isModuleEnabled({ licensePlan: "enterprise" }, "ai")).toBe(true);
   });
   it("lets an explicit per-firm toggle override the plan default", () => {
     // basic plan excludes billing, but this firm has it switched on.
     expect(
       isModuleEnabled({ licensePlan: "basic", modules: { billing: true } }, "billing")
     ).toBe(true);
-    // pro includes enforcement, but this firm turned it off.
+    // enterprise includes AI, but this firm declined to send case material out.
     expect(
-      isModuleEnabled({ licensePlan: "pro", modules: { enforcement: false } }, "enforcement")
+      isModuleEnabled({ licensePlan: "enterprise", modules: { ai: false } }, "ai")
     ).toBe(false);
   });
   it("falls back to plan default for modules the map omits", () => {
     expect(
-      isModuleEnabled({ licensePlan: "pro", modules: { billing: true } }, "enforcement")
+      isModuleEnabled({ licensePlan: "pro", modules: { billing: true } }, "documents")
     ).toBe(true);
   });
 });
@@ -46,5 +46,9 @@ describe("seatLimitReached", () => {
   });
   it("every plan is internally consistent (enterprise has all modules)", () => {
     expect(Object.values(PLANS.enterprise.modules).every(Boolean)).toBe(true);
+  });
+  it("no tier ships AI on by default below enterprise", () => {
+    expect(PLANS.basic.modules.ai).toBe(false);
+    expect(PLANS.pro.modules.ai).toBe(false);
   });
 });

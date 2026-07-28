@@ -58,7 +58,7 @@ import {
 } from "@/components/billing/case-billing-actions";
 import { deleteChargeAction } from "@/app/(app)/billing/actions";
 import { CaseSummary } from "@/components/ai/case-summary";
-import { isAIEnabled } from "@/lib/ai/client";
+import { aiAvailableFor } from "@/lib/ai/gate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -129,6 +129,7 @@ export default async function CaseCardPage({
     listCaseInvoices(caseRow.id),
   ]);
 
+  const aiEnabled = await aiAvailableFor(viewer.firmId);
   const canManageBilling =
     viewer.isAdmin || viewer.role === "admin" || viewer.role === "accountant";
   const pendingChargeIds = pendingCharges.map((c) => c.id);
@@ -229,7 +230,7 @@ export default async function CaseCardPage({
               </CardContent>
             </Card>
 
-            {isAIEnabled() && (
+            {aiEnabled && (
               <Card className="lg:col-span-3">
                 <CardHeader>
                   <CardTitle className="text-base">סיכום AI</CardTitle>
