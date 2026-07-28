@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import Link from "next/link";
 import { LoginForm } from "@/components/auth/login-form";
 import { signInWithGoogle } from "@/lib/auth/actions";
 
@@ -51,8 +52,13 @@ export default function LoginPage() {
         </div>
 
         <LoginForm />
-        <p className="text-center text-xs text-muted-foreground">
-          התחברות עם אימייל וסיסמה — גיבוי זמני עד שהתחברות Google תאומת.
+        <p className="text-center text-sm">
+          <Link
+            href="/forgot-password"
+            className="text-muted-foreground underline"
+          >
+            שכחתי סיסמה
+          </Link>
         </p>
       </CardContent>
     </Card>

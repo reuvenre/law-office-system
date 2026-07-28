@@ -689,6 +689,22 @@ export const trustTransactions = pgTable("trust_transactions", {
 /* Only the SHA-256 hash of the token is stored; the raw token is      */
 /* shown once at creation and never persisted.                         */
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/* password_reset_tokens — self-service password recovery              */
+/* Same model as the portal tokens: only the SHA-256 is stored, so a   */
+/* database leak yields no usable credential.                          */
+/* ------------------------------------------------------------------ */
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const clientPortalTokens = pgTable("client_portal_tokens", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id")

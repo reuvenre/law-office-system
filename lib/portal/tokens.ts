@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { clientPortalTokens, clients, DEFAULT_FIRM_ID } from "@/lib/db/schema";
+import { clientPortalTokens, clients } from "@/lib/db/schema";
 
 /**
  * Client-portal access tokens (win-solutions).
@@ -25,7 +25,7 @@ function hashToken(raw: string): string {
 /** Create a portal token for a client. Returns the raw token — show it once. */
 export async function createPortalToken(params: {
   clientId: string;
-  firmId?: string;
+  firmId: string;
   createdBy?: string | null;
   ttlDays?: number;
 }): Promise<{ raw: string; expiresAt: Date }> {
@@ -35,7 +35,7 @@ export async function createPortalToken(params: {
 
   await db.insert(clientPortalTokens).values({
     clientId: params.clientId,
-    firmId: params.firmId ?? DEFAULT_FIRM_ID,
+    firmId: params.firmId,
     tokenHash: hashToken(raw),
     expiresAt,
     createdBy: params.createdBy ?? null,

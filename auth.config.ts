@@ -15,12 +15,18 @@ export const authConfig = {
       const { pathname } = nextUrl;
 
       const isAuthRoute = pathname.startsWith("/login");
+      // Password recovery must be reachable without a session — that is the
+      // whole point — and must not bounce a signed-out visitor to /login.
+      const isRecoveryRoute =
+        pathname.startsWith("/forgot-password") ||
+        pathname.startsWith("/reset-password");
       // Machine endpoints authenticate via their own shared secret, not a
       // user session — they must bypass session-based middleware. The client
       // portal authenticates with its own hashed magic-link token + httpOnly
       // cookie (lib/portal/tokens.ts), so it is likewise not session-gated.
       const isPublic =
         pathname === "/" ||
+        isRecoveryRoute ||
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/cron") ||
         pathname.startsWith("/api/webhooks") ||
