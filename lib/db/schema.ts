@@ -194,7 +194,6 @@ export const users = pgTable("users", {
   visibleUserIds: jsonb("visible_user_ids").$type<string[]>().notNull().default([]),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }),
   licenseNumber: text("license_number"),
@@ -219,7 +218,6 @@ export const clients = pgTable("clients", {
   onedriveUrl: text("onedrive_url"),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   contactType: contactTypeEnum("contact_type").notNull().default("client"),
   entityKind: entityKindEnum("entity_kind").notNull().default("person"),
@@ -253,7 +251,6 @@ export const cases = pgTable("cases", {
   closedAt: date("closed_at"),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   externalNumber: text("external_number"),
   stage: text("stage"),
@@ -286,7 +283,6 @@ export const documents = pgTable("documents", {
   uploadedBy: uuid("uploaded_by").references(() => users.id),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   ...timestamps,
 });
@@ -306,7 +302,6 @@ export const hearings = pgTable("hearings", {
   outcome: text("outcome"),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   createdBy: uuid("created_by").references(() => users.id),
   ...timestamps,
@@ -327,7 +322,6 @@ export const deadlines = pgTable("deadlines", {
   doneBy: uuid("done_by").references(() => users.id),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   createdBy: uuid("created_by").references(() => users.id),
   ...timestamps,
@@ -346,7 +340,6 @@ export const tasks = pgTable("tasks", {
   status: taskStatusEnum("status").notNull().default("open"),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   priority: priorityEnum("priority").notNull().default("normal"),
   workflowId: uuid("workflow_id").references(() => workflows.id),
@@ -370,7 +363,6 @@ export const notes = pgTable("notes", {
     .references(() => users.id),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   ...timestamps,
 });
@@ -408,10 +400,16 @@ export const activityLog = pgTable("activity_log", {
 });
 
 /* ------------------------------------------------------------------ */
-/* app_settings — singleton office/reminder configuration (spec §6.10) */
+/* app_settings — per-firm office/reminder configuration (spec §6.10)  */
+/* One row per firm: the reminder templates are the words a firm's own */
+/* clients receive, so they must never be shared across tenants.       */
 /* ------------------------------------------------------------------ */
 export const appSettings = pgTable("app_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
+  firmId: uuid("firm_id")
+    .notNull()
+    .references(() => firms.id)
+    .unique(),
   hearingTemplate: text("hearing_template")
     .notNull()
     .default(
@@ -493,7 +491,6 @@ export const feeAgreements = pgTable("fee_agreements", {
   id: uuid("id").primaryKey().defaultRandom(),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   clientId: uuid("client_id")
     .notNull()
@@ -519,7 +516,6 @@ export const workflows = pgTable("workflows", {
   id: uuid("id").primaryKey().defaultRandom(),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   name: text("name").notNull(),
   caseType: text("case_type"),
@@ -546,7 +542,6 @@ export const timeEntries = pgTable("time_entries", {
   id: uuid("id").primaryKey().defaultRandom(),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   caseId: uuid("case_id")
     .notNull()
@@ -569,7 +564,6 @@ export const charges = pgTable("charges", {
   id: uuid("id").primaryKey().defaultRandom(),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   caseId: uuid("case_id").references(() => cases.id),
   clientId: uuid("client_id")
@@ -593,7 +587,6 @@ export const invoices = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     firmId: uuid("firm_id")
       .notNull()
-      .default(DEFAULT_FIRM_ID)
       .references(() => firms.id),
     clientId: uuid("client_id")
       .notNull()
@@ -642,7 +635,6 @@ export const payments = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     firmId: uuid("firm_id")
       .notNull()
-      .default(DEFAULT_FIRM_ID)
       .references(() => firms.id),
     invoiceId: uuid("invoice_id").references(() => invoices.id),
     clientId: uuid("client_id")
@@ -665,7 +657,6 @@ export const trustAccounts = pgTable("trust_accounts", {
   id: uuid("id").primaryKey().defaultRandom(),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   clientId: uuid("client_id")
     .notNull()
@@ -683,7 +674,6 @@ export const trustTransactions = pgTable("trust_transactions", {
     .references(() => trustAccounts.id),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   direction: trustDirectionEnum("direction").notNull(),
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
@@ -706,7 +696,6 @@ export const clientPortalTokens = pgTable("client_portal_tokens", {
     .references(() => clients.id, { onDelete: "cascade" }),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   tokenHash: text("token_hash").notNull().unique(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -720,7 +709,6 @@ export const documentTemplates = pgTable("document_templates", {
   id: uuid("id").primaryKey().defaultRandom(),
   firmId: uuid("firm_id")
     .notNull()
-    .default(DEFAULT_FIRM_ID)
     .references(() => firms.id),
   name: text("name").notNull(),
   category: text("category"),

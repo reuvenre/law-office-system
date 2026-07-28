@@ -49,21 +49,24 @@ export async function getClientCases(clientId: string, allowedIds: Ids) {
 }
 
 /**
- * Conflict-of-interest check (spec §6.8) — intentionally firm-wide regardless
- * of the viewer's scope, so conflicts are never missed.
+ * Conflict-of-interest check (spec §6.8) — intentionally firm-**wide**,
+ * ignoring the viewer's own `allowedIds`, so a conflict held by a colleague is
+ * never missed. Firm-wide is not the same as platform-wide: the tenant
+ * predicate stays, or this becomes an index of who is represented by whom
+ * across every firm on the platform. Ids are not returned; the UI shows names.
  */
-export async function checkNameConflicts(name: string) {
+export async function checkNameConflicts(name: string, firmId: string) {
   const q = `%${name.trim()}%`;
   const [clientMatches, opposingMatches] = await Promise.all([
     db
-      .select({ id: clients.id, fullName: clients.fullName })
+      .select({ fullName: clients.fullName })
       .from(clients)
-      .where(ilike(clients.fullName, q))
+      .where(and(eq(clients.firmId, firmId), ilike(clients.fullName, q)))
       .limit(5),
     db
-      .select({ id: cases.id, title: cases.title, opposingParty: cases.opposingParty })
+      .select({ title: cases.title, opposingParty: cases.opposingParty })
       .from(cases)
-      .where(and(ilike(cases.opposingParty, q)))
+      .where(and(eq(cases.firmId, firmId), ilike(cases.opposingParty, q)))
       .limit(5),
   ]);
   return { clientMatches, opposingMatches };

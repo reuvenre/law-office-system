@@ -10,6 +10,8 @@ import { PLANS, MODULES, planFor, isModuleEnabled, type ModuleKey } from "@/lib/
 const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
+type Firm = { licensePlan: string; modules: Partial<Record<ModuleKey, boolean>> };
+
 function SaveButton() {
   const { pending } = useFormStatus();
   return (
@@ -19,19 +21,80 @@ function SaveButton() {
   );
 }
 
+function Seats({ firm, activeSeats }: { firm: Firm; activeSeats: number }) {
+  const plan = planFor(firm.licensePlan);
+  return (
+    <p className="pt-2 text-sm" dir="ltr">
+      {activeSeats}
+      {plan.maxSeats != null ? ` / ${plan.maxSeats}` : " (ללא הגבלה)"}
+    </p>
+  );
+}
+
+/**
+ * The plan is what the firm pays for, so only vendor staff may change it — a
+ * customer admin sees the same information read-only. `canEdit` mirrors the
+ * server-side gate in updateFirmPlanAction; it hides the controls, it is not
+ * the check.
+ */
 export function FirmPlanForm({
   firm,
   activeSeats,
+  canEdit,
 }: {
-  firm: { licensePlan: string; modules: Partial<Record<ModuleKey, boolean>> };
+  firm: Firm;
   activeSeats: number;
+  canEdit: boolean;
 }) {
   const plan = planFor(firm.licensePlan);
+
+  if (!canEdit) {
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label>תוכנית</Label>
+            <p className="pt-2 text-sm">
+              {plan.label} — {plan.priceHint}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <Label>משתמשים פעילים</Label>
+            <Seats firm={firm} activeSeats={activeSeats} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>מודולים פעילים</Label>
+          <ul className="grid gap-1 text-sm sm:grid-cols-2">
+            {(Object.keys(MODULES) as ModuleKey[]).map((k) => (
+              <li key={k} className="text-muted-foreground">
+                {isModuleEnabled(firm, k) ? "✓" : "—"} {MODULES[k]}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          לשדרוג תוכנית או להוספת מודולים פנו ל-
+          <a
+            href="https://win-solutions.co.il"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            win-solutions.co.il
+          </a>
+          .
+        </p>
+      </div>
+    );
+  }
+
   return (
     <form
       action={async (fd) => {
-        await updateFirmPlanAction(fd);
-        toast.success("התוכנית עודכנה");
+        const res = await updateFirmPlanAction(fd);
+        if (res?.error) toast.error(res.error);
+        else toast.success("התוכנית עודכנה");
       }}
       className="space-y-4"
     >
@@ -53,10 +116,7 @@ export function FirmPlanForm({
         </div>
         <div className="space-y-1">
           <Label>משתמשים פעילים</Label>
-          <p className="pt-2 text-sm" dir="ltr">
-            {activeSeats}
-            {plan.maxSeats != null ? ` / ${plan.maxSeats}` : " (ללא הגבלה)"}
-          </p>
+          <Seats firm={firm} activeSeats={activeSeats} />
         </div>
       </div>
 

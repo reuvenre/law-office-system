@@ -34,6 +34,7 @@ export async function addHearingAction(
   const [row] = await db
     .insert(hearings)
     .values({
+      firmId: user.firmId,
       caseId,
       hearingAt,
       location: (formData.get("location") as string)?.trim() || null,

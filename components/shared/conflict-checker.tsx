@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type Result = {
-  clientMatches: { id: string; fullName: string }[];
-  opposingMatches: { id: string; title: string; opposingParty: string | null }[];
+  clientMatches: { fullName: string }[];
+  opposingMatches: { title: string; opposingParty: string | null }[];
 };
 
 /**
@@ -64,8 +64,8 @@ export function ConflictChecker() {
             <div>
               <p className="text-xs text-muted-foreground">לקוחות קיימים:</p>
               <ul className="list-inside list-disc">
-                {result!.clientMatches.map((c) => (
-                  <li key={c.id}>{c.fullName}</li>
+                {result!.clientMatches.map((c, i) => (
+                  <li key={`${c.fullName}-${i}`}>{c.fullName}</li>
                 ))}
               </ul>
             </div>
@@ -74,8 +74,8 @@ export function ConflictChecker() {
             <div>
               <p className="text-xs text-muted-foreground">כצד שכנגד בתיקים:</p>
               <ul className="list-inside list-disc">
-                {result!.opposingMatches.map((c) => (
-                  <li key={c.id}>
+                {result!.opposingMatches.map((c, i) => (
+                  <li key={`${c.title}-${i}`}>
                     {c.title} (נגד {c.opposingParty})
                   </li>
                 ))}

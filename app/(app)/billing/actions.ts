@@ -3,15 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import {
-  timeEntries,
-  charges,
-  users,
-  invoices,
-  DEFAULT_FIRM_ID,
-} from "@/lib/db/schema";
+import { timeEntries, charges, users, invoices } from "@/lib/db/schema";
 import { getViewer, requireFinanceRole, requireModule } from "@/lib/auth/viewer";
-import { canAccessCase, canAccessInvoice } from "@/lib/auth/scope";
+import { canAccessCase, canAccessClient, canAccessInvoice } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
 import {
   createProforma,
@@ -66,6 +60,7 @@ export async function addTimeEntryAction(
   const billable = formData.get("billable") === "on";
 
   await db.insert(timeEntries).values({
+    firmId: viewer.firmId,
     caseId,
     userId: viewer.id,
     durationMin,
@@ -90,7 +85,10 @@ export async function addTimeEntryAction(
 /** Convert a case's un-invoiced billable time into a single fee charge. */
 export async function createChargesFromTimeAction(caseId: string) {
   const viewer = await requireBilling();
-  const charge = await chargesFromTimeEntries(DEFAULT_FIRM_ID, caseId, viewer.id);
+  if (!(await canAccessCase(caseId, viewer))) {
+    return { error: "אין הרשאה לתיק זה" };
+  }
+  const charge = await chargesFromTimeEntries(viewer.firmId, caseId, viewer.id);
   revalidatePath(`/cases/${caseId}`);
   return charge ? { ok: true } : { error: "אין שעות לחיוב" };
 }
@@ -103,8 +101,18 @@ export async function createProformaAction(
 ) {
   const viewer = await requireBilling();
   if (!chargeIds.length) return { error: "לא נבחרו חיובים" };
+  // Being allowed to invoice does not mean being allowed to invoice *this*
+  // client — requireBilling only asserts the role and the module licence.
+  if (!(await canAccessClient(clientId, viewer))) {
+    return { error: "אין הרשאה ללקוח זה" };
+  }
   try {
-    const invoice = await createProforma(clientId, chargeIds, viewer.id);
+    const invoice = await createProforma(
+      clientId,
+      chargeIds,
+      viewer.id,
+      viewer.firmId
+    );
     if (caseId) revalidatePath(`/cases/${caseId}`);
     revalidatePath("/billing");
     return { ok: true, invoiceId: invoice.id };
@@ -129,7 +137,7 @@ export async function recordPaymentAction(
   const reference = String(formData.get("reference") || "").trim() || undefined;
 
   try {
-    await recordPayment(invoiceId, { method, amount, reference });
+    await recordPayment(invoiceId, { method, amount, reference }, viewer.firmId);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "רישום התשלום נכשל" };
   }
@@ -174,7 +182,8 @@ export async function issueInvoiceAction(
     const issued = await issueTaxInvoice(
       proformaId,
       { docType, allocationNumber: allocationRaw || undefined },
-      viewer.id
+      viewer.id,
+      viewer.firmId
     );
     revalidatePath(`/billing/${proformaId}`);
     revalidatePath(`/billing/${issued.id}`);
@@ -189,20 +198,28 @@ export async function issueInvoiceAction(
 export async function cancelInvoiceAction(invoiceId: string) {
   const viewer = await requireBilling();
   if (!(await canAccessInvoice(invoiceId, viewer))) return;
-  await cancelInvoice(invoiceId);
+  await cancelInvoice(invoiceId, viewer.firmId);
   revalidatePath(`/billing/${invoiceId}`);
   revalidatePath("/billing");
 }
 
 /** Delete an un-invoiced pending charge. */
 export async function deleteChargeAction(chargeId: string, caseId?: string) {
-  await requireBilling();
+  const viewer = await requireBilling();
   const [row] = await db
-    .select({ status: charges.status })
+    .select({
+      status: charges.status,
+      firmId: charges.firmId,
+      clientId: charges.clientId,
+    })
     .from(charges)
     .where(eq(charges.id, chargeId))
     .limit(1);
   if (!row || row.status !== "pending") return;
+  // Deleting unbilled work-in-progress is unrecoverable, so verify the charge
+  // is ours and within the viewer's scope before touching it.
+  if (row.firmId !== viewer.firmId) return;
+  if (!(await canAccessClient(row.clientId, viewer))) return;
   await db.delete(charges).where(eq(charges.id, chargeId));
   if (caseId) revalidatePath(`/cases/${caseId}`);
 }

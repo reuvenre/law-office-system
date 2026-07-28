@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       // unique constraint actually dedupes retried webhooks.
       provider: norm.provider,
       providerTxnId: norm.providerTxnId,
-    });
+    }, null);
     return Response.json({ ok: true, ...result });
   } catch (e) {
     console.error("payment webhook failed", e);

@@ -1,6 +1,6 @@
 import { listUsersForSettings } from "@/lib/data/users";
 import { getSettings } from "@/lib/data/settings";
-import { getViewer } from "@/lib/auth/viewer";
+import { getViewer, isVendorEmail } from "@/lib/auth/viewer";
 import { getFirm, countActiveSeats } from "@/lib/data/firm";
 import { PageHeader } from "@/components/shared/page-header";
 import { UserEditForm } from "@/components/settings/user-edit-form";
@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const viewer = await getViewer();
   const [allRows, settings, firm, activeSeats] = await Promise.all([
-    listUsersForSettings(),
-    getSettings(),
+    listUsersForSettings(viewer.firmId),
+    getSettings(viewer.firmId),
     getFirm(viewer.firmId),
     countActiveSeats(viewer.firmId),
   ]);
@@ -62,7 +62,11 @@ export default async function SettingsPage() {
               <CardTitle className="text-base">תוכנית ומודולים</CardTitle>
             </CardHeader>
             <CardContent>
-              <FirmPlanForm firm={firm} activeSeats={activeSeats} />
+              <FirmPlanForm
+                firm={firm}
+                activeSeats={activeSeats}
+                canEdit={isVendorEmail(viewer.email)}
+              />
             </CardContent>
           </Card>
         )}

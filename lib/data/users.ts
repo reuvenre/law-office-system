@@ -1,16 +1,30 @@
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 
-export async function listActiveLawyers() {
+export async function listActiveLawyers(firmId: string) {
   return db
     .select({ id: users.id, fullName: users.fullName })
     .from(users)
-    .where(eq(users.isActive, true))
+    .where(and(eq(users.firmId, firmId), eq(users.isActive, true)))
     .orderBy(asc(users.fullName));
 }
 
-export async function listUsersForSettings() {
+/**
+ * True when the target user belongs to the caller's firm. Every user-management
+ * action must pass this before writing: `isAdmin` only says "an admin of some
+ * firm", never "an admin of the firm that owns this row".
+ */
+export async function isSameFirmUser(userId: string, firmId: string) {
+  const [row] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.firmId, firmId)))
+    .limit(1);
+  return Boolean(row);
+}
+
+export async function listUsersForSettings(firmId: string) {
   return db
     .select({
       id: users.id,
@@ -24,5 +38,6 @@ export async function listUsersForSettings() {
       visibleUserIds: users.visibleUserIds,
     })
     .from(users)
+    .where(eq(users.firmId, firmId))
     .orderBy(asc(users.createdAt));
 }

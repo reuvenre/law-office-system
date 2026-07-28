@@ -23,7 +23,7 @@ export async function addNoteAction(formData: FormData) {
 
   const [row] = await db
     .insert(notes)
-    .values({ body, caseId, clientId, authorId: user.id })
+    .values({ firmId: user.firmId, body, caseId, clientId, authorId: user.id })
     .returning({ id: notes.id });
 
   await logActivity({

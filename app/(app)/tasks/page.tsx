@@ -19,7 +19,7 @@ export default async function TasksPage() {
   const viewer = await getViewer();
   const [rows, lawyers] = await Promise.all([
     listTasks(undefined, viewer),
-    listActiveLawyers(),
+    listActiveLawyers(viewer.firmId),
   ]);
 
   return (

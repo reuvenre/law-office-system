@@ -13,7 +13,6 @@ import {
   payments,
   timeEntries,
   firmCounters,
-  DEFAULT_FIRM_ID,
 } from "@/lib/db/schema";
 import type { FeeAgreement } from "@/lib/erp/types";
 import {
@@ -118,7 +117,7 @@ export async function createProforma(
   clientId: string,
   chargeIds: string[],
   createdBy: string | null,
-  firmId: string = DEFAULT_FIRM_ID
+  firmId: string
 ) {
   const rows = await db
     .select()
@@ -189,14 +188,30 @@ export async function recordPayment(
     provider?: string;
     providerTxnId?: string;
   },
-  firmId: string = DEFAULT_FIRM_ID
+  /**
+   * The firm the caller is acting for. Staff actions pass their own firm, so a
+   * mistargeted invoice id cannot cross tenants. The webhook passes null: there
+   * the invoice id comes back from the provider echoing the value we sent, so
+   * the firm is derived from the invoice row itself.
+   */
+  firmId: string | null
 ) {
   const [invoice] = await db
     .select()
     .from(invoices)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.firmId, firmId)))
+    .where(
+      firmId
+        ? and(eq(invoices.id, invoiceId), eq(invoices.firmId, firmId))
+        : eq(invoices.id, invoiceId)
+    )
     .limit(1);
   if (!invoice) throw new Error("חשבונית לא נמצאה");
+
+  // A cancelled invoice must not be resurrected to "paid" by a late callback —
+  // under Israeli bookkeeping rules a cancelled document stays cancelled.
+  if (invoice.status === "cancelled") {
+    throw new Error("החשבונית בוטלה — לא ניתן לרשום תשלום");
+  }
 
   // Idempotency: payment providers retry webhooks. A transaction we already
   // recorded must not be inserted twice or flip the invoice status again.
@@ -222,7 +237,7 @@ export async function recordPayment(
   }
 
   await db.insert(payments).values({
-    firmId,
+    firmId: invoice.firmId,
     invoiceId,
     clientId: invoice.clientId,
     method: payment.method,
@@ -261,7 +276,7 @@ export async function issueTaxInvoice(
     allocationNumber?: string;
   },
   createdBy: string | null,
-  firmId: string = DEFAULT_FIRM_ID
+  firmId: string
 ) {
   const [proforma] = await db
     .select()
@@ -327,7 +342,7 @@ export async function issueTaxInvoice(
 }
 
 /** Cancel an invoice — never delete (tax rules): set cancelled_at + status. */
-export async function cancelInvoice(invoiceId: string, firmId: string = DEFAULT_FIRM_ID) {
+export async function cancelInvoice(invoiceId: string, firmId: string) {
   await db
     .update(invoices)
     .set({ status: "cancelled", cancelledAt: new Date() })

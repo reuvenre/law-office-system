@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { clients } from "@/lib/db/schema";
-import { requireUser } from "@/lib/auth/guards";
 import { getViewer } from "@/lib/auth/viewer";
 import { canAccessClient } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
@@ -36,7 +35,7 @@ export async function createClientAction(
   _prev: ClientFormState,
   formData: FormData
 ): Promise<ClientFormState> {
-  const user = await requireUser();
+  const user = await getViewer();
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
@@ -46,7 +45,7 @@ export async function createClientAction(
   try {
     const [row] = await db
       .insert(clients)
-      .values({ ...parsed.data, createdBy: user.id })
+      .values({ ...parsed.data, firmId: user.firmId, createdBy: user.id })
       .returning({ id: clients.id });
     newId = row.id;
     await logActivity({
@@ -95,11 +94,11 @@ export async function updateClientAction(
 }
 
 export async function checkConflictsAction(name: string) {
-  await requireUser();
+  const viewer = await getViewer();
   if (!name || name.trim().length < 2) {
     return { clientMatches: [], opposingMatches: [] };
   }
-  return checkNameConflicts(name);
+  return checkNameConflicts(name, viewer.firmId);
 }
 
 export async function deleteClientAction(clientId: string) {

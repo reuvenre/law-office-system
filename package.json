@@ -14,7 +14,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "vercel-build": "node scripts/migrate-on-deploy.mjs && next build"
+    "vercel-build": "node scripts/migrate-on-deploy.mjs && next build",
+    "db:provision": "tsx scripts/provision-firm.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

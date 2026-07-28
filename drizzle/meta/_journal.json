@@ -71,6 +71,13 @@
       "when": 1784966661633,
       "tag": "0009_client_portal",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785229008659,
+      "tag": "0010_tenant_stamping",
+      "breakpoints": true
     }
   ]
 }

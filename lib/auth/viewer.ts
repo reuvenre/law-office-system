@@ -53,6 +53,28 @@ export async function getViewer(): Promise<Viewer> {
   };
 }
 
+/**
+ * Vendor (win-solutions) staff, listed in VENDOR_EMAILS. Distinct from a firm
+ * admin: a firm admin runs their own office, a vendor runs the platform. Only
+ * a vendor may change what a firm pays for.
+ *
+ * Fail-closed: with VENDOR_EMAILS unset nobody is a vendor, so plan changes
+ * happen out-of-band rather than being silently open to every customer admin.
+ */
+export function isVendorEmail(email: string): boolean {
+  const allowed = (process.env.VENDOR_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return allowed.includes(email.trim().toLowerCase());
+}
+
+/** The viewer if they are vendor staff, otherwise null. */
+export async function requireVendor(): Promise<Viewer | null> {
+  const v = await getViewer();
+  return isVendorEmail(v.email) ? v : null;
+}
+
 /** Gate for admin-only actions/pages. */
 export async function requireAdmin(): Promise<Viewer> {
   const v = await getViewer();

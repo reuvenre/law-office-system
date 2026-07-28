@@ -22,7 +22,7 @@ export default async function EditCasePage({
 
   const [clientRows, lawyers] = await Promise.all([
     listClients(viewer),
-    listActiveLawyers(),
+    listActiveLawyers(viewer.firmId),
   ]);
   const clients = clientRows.map((c) => ({ id: c.id, fullName: c.fullName }));
   const action = updateCaseAction.bind(null, caseRow.id);

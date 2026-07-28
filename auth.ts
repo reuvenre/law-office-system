@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { authConfig } from "./auth.config";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, firms } from "@/lib/db/schema";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -28,6 +28,20 @@ async function findUserByEmail(email: string) {
     .where(eq(users.email, email))
     .limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * The firm a first-time Google sign-in should be provisioned into.
+ *
+ * Only answerable while the deployment serves a single firm — with two firms on
+ * one deployment there is no way to tell which one an ALLOWED_EMAILS address
+ * belongs to, and guessing would file a lawyer (and everything they then
+ * create) into someone else's tenant. Past that point users are created by
+ * their own firm's admin in Settings, so we fail closed and refuse the sign-in.
+ */
+async function bootstrapFirmId(): Promise<string | null> {
+  const rows = await db.select({ id: firms.id }).from(firms).limit(2);
+  return rows.length === 1 ? rows[0].id : null;
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -73,17 +87,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = user.email.toLowerCase();
         let dbUser = await findUserByEmail(email);
         if (!dbUser) {
-          // First Google sign-in for an allowed email — provision the row.
-          await db
-            .insert(users)
-            .values({
-              email,
-              fullName: user.name ?? email,
-              role: "lawyer",
-              isActive: true,
-            })
-            .onConflictDoNothing({ target: users.email });
-          dbUser = await findUserByEmail(email);
+          // First Google sign-in for an allowed email — provision the row into
+          // the deployment's only firm. Null once a second firm exists.
+          const firmId = await bootstrapFirmId();
+          if (firmId) {
+            await db
+              .insert(users)
+              .values({
+                firmId,
+                email,
+                fullName: user.name ?? email,
+                role: "lawyer",
+                isActive: true,
+              })
+              .onConflictDoNothing({ target: users.email });
+            dbUser = await findUserByEmail(email);
+          }
         }
         if (dbUser) {
           token.id = dbUser.id;

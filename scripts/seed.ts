@@ -1,5 +1,8 @@
 /**
- * Seeds the two lawyer users (spec §1.3 / §3.1).
+ * Seeds two lawyer users into the deployment's existing firm — a development
+ * convenience, not the onboarding path. To create a firm (and its first admin),
+ * use `npm run db:provision`.
+ *
  * Run with: npm run db:seed
  *
  * Credentials are read from env (set them in .env.local), with safe
@@ -32,13 +35,33 @@ async function main() {
 
   // Import after env is loaded so the Neon client initializes correctly.
   const { db } = await import("../lib/db");
-  const { users } = await import("../lib/db/schema");
+  const { users, firms } = await import("../lib/db/schema");
+
+  // Which firm do these users belong to? Only answerable while there is exactly
+  // one — past that, guessing would file lawyers into someone else's tenant.
+  const firmRows = await db.select({ id: firms.id, name: firms.name }).from(firms).limit(2);
+  if (firmRows.length === 0) {
+    throw new Error(
+      "No firm exists yet. Create one first:\n" +
+        '  npm run db:provision -- --name "<firm>" --admin-name "<name>" ' +
+        "--admin-email <email> --password <password>"
+    );
+  }
+  if (firmRows.length > 1) {
+    throw new Error(
+      "More than one firm exists — seeding is ambiguous. Use db:provision, or " +
+        "add users from that firm's Settings screen."
+    );
+  }
+  const firmId = firmRows[0].id;
+  console.log(`Seeding into firm "${firmRows[0].name}"`);
 
   for (const u of seedUsers) {
     const passwordHash = await bcrypt.hash(u.password, 10);
     await db
       .insert(users)
       .values({
+        firmId,
         fullName: u.fullName,
         email: u.email,
         passwordHash,

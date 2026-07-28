@@ -54,6 +54,7 @@ export async function createCaseAction(
     const [row] = await db
       .insert(cases)
       .values({
+        firmId: user.firmId,
         clientId: data.clientId,
         title: data.title,
         practiceArea: data.practiceArea,
@@ -106,6 +107,13 @@ export async function updateCaseAction(
     return { errors: parsed.error.flatten().fieldErrors };
   }
   const data = parsed.data;
+  // The submitted clientId is an authorization boundary, not a cosmetic field:
+  // clientScope() derives client visibility from the cases attached to them, so
+  // re-pointing a case you own at someone else's client would hand you that
+  // client's notes, documents and invoices.
+  if (!(await canAccessClient(data.clientId, user))) {
+    return { error: "אין הרשאה ללקוח זה" };
+  }
   const typeFields = collectTypeFields(
     data.practiceArea as PracticeArea,
     formData

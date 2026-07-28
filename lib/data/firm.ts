@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { firms, users } from "@/lib/db/schema";
 import { DEFAULT_FIRM_ID } from "@/lib/db/schema";
@@ -26,11 +26,15 @@ export async function getFirm(firmId: string = DEFAULT_FIRM_ID): Promise<FirmRow
   };
 }
 
-/** Count active users in a firm (for seat-limit checks). */
+/**
+ * Count active users in a firm (for seat-limit checks). Deactivated users do
+ * not occupy a seat — otherwise a firm that lets someone go could never hire
+ * their replacement without buying a tier up.
+ */
 export async function countActiveSeats(firmId: string = DEFAULT_FIRM_ID): Promise<number> {
   const rows = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.firmId, firmId));
+    .where(and(eq(users.firmId, firmId), eq(users.isActive, true)));
   return rows.length;
 }

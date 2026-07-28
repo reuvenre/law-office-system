@@ -123,7 +123,7 @@ export default async function CaseCardPage({
     getCaseTasks(caseRow.id),
     getCaseNotes(caseRow.id),
     getCaseDocuments(caseRow.id),
-    listActiveLawyers(),
+    listActiveLawyers(viewer.firmId),
     listTimeEntries(caseRow.id),
     listPendingCharges(caseRow.clientId),
     listCaseInvoices(caseRow.id),

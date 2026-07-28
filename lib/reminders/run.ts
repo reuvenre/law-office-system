@@ -5,6 +5,7 @@ import {
   deadlines,
   cases,
   clients,
+  firms,
   messageLog,
 } from "@/lib/db/schema";
 import { getSettings } from "@/lib/data/settings";
@@ -93,10 +94,12 @@ async function dispatch(
   else summary.failed++;
 }
 
-/** Daily reminder scan (spec §8 / appendix ג'), configurable via app_settings. */
-export async function runDailyReminders(): Promise<Summary> {
-  const summary: Summary = { processed: 0, sent: 0, skipped: 0, failed: 0 };
-  const settings = await getSettings();
+/**
+ * Daily reminder scan for one firm (spec §8 / appendix ג'), driven by that
+ * firm's own app_settings row.
+ */
+async function runFirmReminders(firmId: string, summary: Summary): Promise<void> {
+  const settings = await getSettings(firmId);
   const now = new Date();
   const horizon = new Date(now.getTime() + 10 * 86400000);
 
@@ -115,10 +118,11 @@ export async function runDailyReminders(): Promise<Summary> {
       channel: clients.reminderChannel,
     })
     .from(hearings)
-    .leftJoin(cases, eq(hearings.caseId, cases.id))
+    .innerJoin(cases, eq(hearings.caseId, cases.id))
     .leftJoin(clients, eq(cases.clientId, clients.id))
     .where(
       and(
+        eq(cases.firmId, firmId),
         eq(hearings.status, "scheduled"),
         gte(hearings.hearingAt, now),
         lte(hearings.hearingAt, horizon)
@@ -167,10 +171,11 @@ export async function runDailyReminders(): Promise<Summary> {
       channel: clients.reminderChannel,
     })
     .from(deadlines)
-    .leftJoin(cases, eq(deadlines.caseId, cases.id))
+    .innerJoin(cases, eq(deadlines.caseId, cases.id))
     .leftJoin(clients, eq(cases.clientId, clients.id))
     .where(
       and(
+        eq(cases.firmId, firmId),
         eq(deadlines.isDone, false),
         gte(deadlines.dueAt, now),
         lte(deadlines.dueAt, horizon)
@@ -207,6 +212,18 @@ export async function runDailyReminders(): Promise<Summary> {
       summary
     );
   }
+}
 
+/**
+ * Daily reminder scan across every firm. Each firm is rendered with its own
+ * templates and channel default — one firm's wording must never reach another
+ * firm's clients.
+ */
+export async function runDailyReminders(): Promise<Summary> {
+  const summary: Summary = { processed: 0, sent: 0, skipped: 0, failed: 0 };
+  const rows = await db.select({ id: firms.id }).from(firms);
+  for (const firm of rows) {
+    await runFirmReminders(firm.id, summary);
+  }
   return summary;
 }

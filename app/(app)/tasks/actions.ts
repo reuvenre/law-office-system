@@ -36,7 +36,7 @@ export async function addTaskAction(
 
   const [row] = await db
     .insert(tasks)
-    .values({ caseId, title, assignedTo, dueAt, createdBy: user.id })
+    .values({ firmId: user.firmId, caseId, title, assignedTo, dueAt, createdBy: user.id })
     .returning({ id: tasks.id });
 
   await logActivity({

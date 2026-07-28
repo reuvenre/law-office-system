@@ -35,6 +35,7 @@ export async function addDeadlineAction(
   const [row] = await db
     .insert(deadlines)
     .values({
+      firmId: user.firmId,
       caseId,
       title,
       dueAt,
