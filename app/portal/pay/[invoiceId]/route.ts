@@ -37,6 +37,13 @@ export const GET = withPortalSession<Ctx>(async (session, _req, { params }) => {
     return new Response("Not found", { status: 404 });
   }
 
+  // Both providers are wired for shekels only (Cardcom is sent ISOCoinId: 1).
+  // Refusing here beats silently charging the right number in the wrong
+  // currency, which is a mischarge nobody would catch until reconciliation.
+  if (invoice.currency !== "ILS") {
+    return textError("תשלום מקוון זמין כרגע בשקלים בלבד. אנא פנו למשרד.", 503);
+  }
+
   // Reuse a previously generated link when present.
   if (invoice.paymentLink) {
     return NextResponse.redirect(invoice.paymentLink, 302);

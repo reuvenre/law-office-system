@@ -147,6 +147,7 @@ export async function portalPayableInvoice(
       docNumber: invoices.docNumber,
       status: invoices.status,
       total: invoices.total,
+      currency: invoices.currency,
       paymentLink: invoices.paymentLink,
     })
     .from(invoices)

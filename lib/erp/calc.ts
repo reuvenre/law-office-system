@@ -102,6 +102,20 @@ export function isPayableInvoiceStatus(status: string): boolean {
   return status === "sent" || status === "partially_paid";
 }
 
+/**
+ * A single payment more than double the invoice is not an overpayment — it is
+ * almost certainly a unit mismatch (a provider reporting agorot where we expect
+ * shekels turns ₪250 into ₪25,000 and marks the invoice paid).
+ *
+ * The threshold is deliberately loose: a client rounding ₪940 up to ₪1,000 must
+ * never be rejected. We are catching a 100× error, not policing generosity.
+ */
+export function isImplausiblePayment(amount: number, invoiceTotal: number): boolean {
+  if (!Number.isFinite(amount) || !Number.isFinite(invoiceTotal)) return true;
+  if (invoiceTotal <= 0) return false;
+  return amount > invoiceTotal * 2;
+}
+
 /** Invoice status after payments: fully paid vs partial. */
 export function paymentStatus(
   totalPaid: number,

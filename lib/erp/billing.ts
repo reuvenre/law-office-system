@@ -23,6 +23,7 @@ import {
   buildRetainerCharges,
   paymentStatus as calcPaymentStatus,
   docCounterName,
+  isImplausiblePayment,
 } from "@/lib/erp/calc";
 
 export { VAT_RATE };
@@ -211,6 +212,18 @@ export async function recordPayment(
   // under Israeli bookkeeping rules a cancelled document stays cancelled.
   if (invoice.status === "cancelled") {
     throw new Error("החשבונית בוטלה — לא ניתן לרשום תשלום");
+  }
+
+  // Refuse instead of recording when the amount cannot be what it claims: the
+  // likely cause is a provider reporting agorot, and marking the invoice paid
+  // for 100x the real sum is far worse than a webhook the provider retries.
+  if (isImplausiblePayment(payment.amount, Number(invoice.total))) {
+    console.error(
+      `refusing implausible payment on invoice ${invoiceId}: ` +
+        `amount=${payment.amount} invoiceTotal=${invoice.total} ` +
+        `provider=${payment.provider ?? "manual"}`
+    );
+    throw new Error("סכום התשלום אינו תואם את החשבונית");
   }
 
   // Idempotency: payment providers retry webhooks. A transaction we already

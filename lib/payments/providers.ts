@@ -7,10 +7,24 @@ import type {
 import { growWebhookRef, cardcomWebhookRef, str } from "./webhook";
 import { appBaseUrl } from "@/lib/url";
 
+const GROW_SANDBOX_BASE = "https://sandbox.meshulam.co.il/api/light/server/1.0";
+
+/**
+ * Meshulam's API host. Defaulting to sandbox is right for development and
+ * dangerous in production: a deploy that forgets GROW_API_BASE would send real
+ * charges to a test environment and nobody would notice until the money never
+ * arrived. So in production the variable is required.
+ */
 function growApiBase(): string {
-  return (
-    process.env.GROW_API_BASE || "https://sandbox.meshulam.co.il/api/light/server/1.0"
-  );
+  const configured = process.env.GROW_API_BASE?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "GROW_API_BASE is not set. Refusing to fall back to the Meshulam " +
+        "sandbox in production — set it to the live API base."
+    );
+  }
+  return GROW_SANDBOX_BASE;
 }
 
 /**
@@ -100,14 +114,21 @@ export const growProvider: PaymentProvider = {
       if (!json || json.status !== 1 || !json.data) return null;
 
       const d = json.data;
-      // Only a settled transaction counts as a payment.
-      const statusCode = str(d.transactionTypeId) ?? str(d.statusCode);
-      if (statusCode && statusCode !== "1") return null;
+      // Only a settled transaction counts as a payment, and the check must fail
+      // CLOSED: an absent status field means "we could not confirm this", not
+      // "assume it went through". (transactionTypeId is the transaction *type*
+      // — regular / instalments / standing order — so it is deliberately not
+      // consulted here.)
+      const settled = str(d.statusCode) ?? str(d.status);
+      if (settled !== "1") return null;
 
       const invoiceId = str(d.cField1);
       const amount = Number(d.sum ?? d.paymentSum ?? 0);
-      const providerTxnId = str(d.asmachta) ?? str(d.transactionId) ?? ref.processId;
-      if (!invoiceId || !Number.isFinite(amount) || amount <= 0) return null;
+      // No fallback to the request's own processId: the idempotency key must
+      // come from the provider, or a replay could choose its own key.
+      const providerTxnId = str(d.asmachta) ?? str(d.transactionId);
+      if (!invoiceId || !providerTxnId) return null;
+      if (!Number.isFinite(amount) || amount <= 0) return null;
 
       return { invoiceId, amount, providerTxnId, method: "credit_card" };
     } catch (e) {
@@ -137,7 +158,8 @@ export const cardcomProvider: PaymentProvider = {
           TerminalNumber: Number(terminal),
           ApiName: apiName,
           Amount: req.amount,
-          ISOCoinId: 1, // ILS
+          // ILS. The pay route refuses non-ILS invoices before reaching here.
+          ISOCoinId: 1,
           ProductName: req.description,
           ReturnValue: req.invoiceId,
           SuccessRedirectUrl: req.successUrl,

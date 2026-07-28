@@ -13,6 +13,7 @@ import {
   isValidAllocationNumber,
   docCounterName,
   isPayableInvoiceStatus,
+  isImplausiblePayment,
 } from "./calc";
 
 describe("round2", () => {
@@ -213,5 +214,28 @@ describe("retainerFiresToday", () => {
   it("does not double-fire: a valid mid-month day is unaffected by the clamp", () => {
     // Billing day 15 in April: only the 15th, never the 30th.
     expect(retainerFiresToday(15, 30, 30)).toBe(false);
+  });
+});
+
+describe("isImplausiblePayment", () => {
+  it("accepts an exact settlement and a rounded-up overpayment", () => {
+    expect(isImplausiblePayment(1180, 1180)).toBe(false);
+    expect(isImplausiblePayment(1200, 1180)).toBe(false);
+    expect(isImplausiblePayment(500, 1180)).toBe(false); // partial
+  });
+
+  it("rejects an agorot/shekel unit mismatch", () => {
+    // ₪250 invoice, provider reports 25000 (agorot) — 100x.
+    expect(isImplausiblePayment(25000, 250)).toBe(true);
+  });
+
+  it("rejects anything that is not a finite number", () => {
+    expect(isImplausiblePayment(NaN, 100)).toBe(true);
+    expect(isImplausiblePayment(100, NaN)).toBe(true);
+    expect(isImplausiblePayment(Infinity, 100)).toBe(true);
+  });
+
+  it("does not fire on a zero-total invoice — there is nothing to compare to", () => {
+    expect(isImplausiblePayment(50, 0)).toBe(false);
   });
 });
