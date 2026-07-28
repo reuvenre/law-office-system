@@ -8,6 +8,7 @@ import { cases, caseStatusHistory } from "@/lib/db/schema";
 import { getViewer } from "@/lib/auth/viewer";
 import { canAccessCase, canAccessClient } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
+import { deleteCaseBlobs } from "@/lib/data/blob-cleanup";
 import { caseBaseSchema, CASE_STATUS_VALUES } from "@/lib/validations/case";
 import { collectTypeFields } from "@/lib/practice-areas";
 import type { PracticeArea } from "@/lib/constants";
@@ -198,7 +199,19 @@ export async function changeCaseStatusAction(caseId: string, formData: FormData)
 export async function deleteCaseAction(caseId: string) {
   const user = await getViewer();
   if (!(await canAccessCase(caseId, user))) return;
-  await db.delete(cases).where(eq(cases.id, caseId));
+
+  // Remove the stored files first — the rows are about to cascade away, and
+  // once they have there is nothing left pointing at the blobs.
+  await deleteCaseBlobs(caseId);
+
+  try {
+    await db.delete(cases).where(eq(cases.id, caseId));
+  } catch {
+    // Almost always an invoice referencing the case: invoices are never
+    // deleted (tax rules), so the FK refuses. Say that instead of crashing.
+    return { error: "לא ניתן למחוק תיק שהופקו עבורו חשבוניות. ניתן לסגור אותו במקום." };
+  }
+
   await logActivity({
     actorId: user.id,
     entityType: "case",

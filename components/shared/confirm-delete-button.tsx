@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +24,9 @@ export function ConfirmDeleteButton({
   title = "אישור מחיקה",
   description = "פעולה זו אינה הפיכה. הרשומה תימחק לצמיתות (הפעולה תתועד ביומן).",
 }: {
-  action: () => Promise<void>;
+  // A refused delete (e.g. a case with issued invoices) returns a reason
+  // instead of throwing — the dialog reports it rather than appearing to work.
+  action: () => Promise<{ error?: string } | void>;
   triggerLabel?: string;
   title?: string;
   description?: string;
@@ -46,7 +49,15 @@ export function ConfirmDeleteButton({
             <DialogClose asChild>
               <Button variant="secondary">ביטול</Button>
             </DialogClose>
-            <form action={action}>
+            <form
+              action={async () => {
+                const result = await action();
+                if (result?.error) {
+                  toast.error(result.error);
+                  setOpen(false);
+                }
+              }}
+            >
               <Button type="submit" variant="destructive">
                 מחיקה לצמיתות
               </Button>

@@ -1,7 +1,8 @@
 import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 
-// Edge-safe middleware: route protection via the `authorized` callback.
+// Edge-safe proxy (the `middleware` file convention Next 16 replaced): route
+// protection via the `authorized` callback.
 export default NextAuth(authConfig).auth;
 
 export const config = {

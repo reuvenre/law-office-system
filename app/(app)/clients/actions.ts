@@ -8,6 +8,7 @@ import { clients } from "@/lib/db/schema";
 import { getViewer } from "@/lib/auth/viewer";
 import { canAccessClient } from "@/lib/auth/scope";
 import { logActivity } from "@/lib/activity";
+import { deleteClientBlobs } from "@/lib/data/blob-cleanup";
 import { clientSchema } from "@/lib/validations/client";
 import { checkNameConflicts } from "@/lib/data/clients";
 
@@ -104,7 +105,17 @@ export async function checkConflictsAction(name: string) {
 export async function deleteClientAction(clientId: string) {
   const user = await getViewer();
   if (!(await canAccessClient(clientId, user))) return;
-  await db.delete(clients).where(eq(clients.id, clientId));
+
+  await deleteClientBlobs(clientId);
+
+  try {
+    await db.delete(clients).where(eq(clients.id, clientId));
+  } catch {
+    return {
+      error: "לא ניתן למחוק לקוח שהופקו עבורו חשבוניות. ניתן לארכב את התיקים במקום.",
+    };
+  }
+
   await logActivity({
     actorId: user.id,
     entityType: "client",
