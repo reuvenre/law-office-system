@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getViewer } from "@/lib/auth/viewer";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,17 +58,27 @@ export default async function HelpPage() {
         ))}
       </div>
 
-      <p className="mt-8 text-center text-sm text-muted-foreground">
-        מערכת לניהול משרד עורכי דין — מבית{" "}
-        <a
-          href="https://win-solutions.co.il"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium text-primary hover:underline"
-        >
-          win-solutions.co.il
-        </a>
-      </p>
+      <div className="mt-8 space-y-2 text-center text-sm text-muted-foreground">
+        <p className="flex flex-wrap items-center justify-center gap-3">
+          <Link href="/privacy" className="hover:text-primary">
+            מדיניות פרטיות
+          </Link>
+          <Link href="/terms" className="hover:text-primary">
+            תנאי שימוש
+          </Link>
+        </p>
+        <p>
+          מערכת לניהול משרד עורכי דין — מבית{" "}
+          <a
+            href="https://win-solutions.co.il"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary hover:underline"
+          >
+            win-solutions.co.il
+          </a>
+        </p>
+      </div>
     </div>
   );
 }

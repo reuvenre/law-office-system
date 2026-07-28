@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { firms, users } from "@/lib/db/schema";
-import { DEFAULT_FIRM_ID } from "@/lib/db/schema";
 import type { ModuleMap } from "@/lib/plans";
 
 export type FirmRow = {
@@ -11,8 +10,8 @@ export type FirmRow = {
   modules: Partial<ModuleMap>;
 };
 
-/** Load a firm by id (defaults to the single seeded firm). */
-export async function getFirm(firmId: string = DEFAULT_FIRM_ID): Promise<FirmRow> {
+/** Load a firm by id. */
+export async function getFirm(firmId: string): Promise<FirmRow> {
   const [row] = await db.select().from(firms).where(eq(firms.id, firmId)).limit(1);
   if (!row) {
     // The firm row should always exist (seeded); degrade to safe defaults.
@@ -31,7 +30,7 @@ export async function getFirm(firmId: string = DEFAULT_FIRM_ID): Promise<FirmRow
  * not occupy a seat — otherwise a firm that lets someone go could never hire
  * their replacement without buying a tier up.
  */
-export async function countActiveSeats(firmId: string = DEFAULT_FIRM_ID): Promise<number> {
+export async function countActiveSeats(firmId: string): Promise<number> {
   const rows = await db
     .select({ id: users.id })
     .from(users)
